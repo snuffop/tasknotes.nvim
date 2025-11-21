@@ -1,0 +1,18 @@
+# Neovim
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+test/
+spec/
+
+# Lua
+luac.out
+
+# Plugin manager
+lazy-lock.json
