@@ -2,6 +2,8 @@
 
 A Neovim plugin for managing [TaskNotes](https://github.com/joshklein/obsidian-tasknotes) - a task management system where each task is a markdown file with YAML frontmatter.
 
+**📚 New to tasknotes.nvim?** Check out the [Quick Start Guide](QUICKSTART.md) to get up and running in minutes!
+
 ## Features
 
 - **Browse & Search Tasks**: Telescope integration for fast task browsing with filtering by status, priority, context, and project
@@ -139,38 +141,38 @@ require("tasknotes").setup({
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `:TaskNotesBrowse` | Open Telescope picker to browse all tasks |
-| `:TaskNotesNew` | Create a new task with form |
-| `:TaskNotesEdit` | Edit current task metadata |
-| `:TaskNotesRescan` | Rescan vault directory for tasks |
-| `:TaskNotesTimerToggle` | Start/stop timer for current task |
-| `:TaskNotesTimerStatus` | Show active timer status |
-| `:TaskNotesTimeEntries` | View time entries for current task |
-| `:TaskNotesByStatus` | Browse tasks filtered by status |
-| `:TaskNotesByPriority` | Browse tasks filtered by priority |
-| `:TaskNotesByContext` | Browse tasks filtered by context |
+| Command                 | Description                               |
+| ----------------------- | ----------------------------------------- |
+| `:TaskNotesBrowse`      | Open Telescope picker to browse all tasks |
+| `:TaskNotesNew`         | Create a new task with form               |
+| `:TaskNotesEdit`        | Edit current task metadata                |
+| `:TaskNotesRescan`      | Rescan vault directory for tasks          |
+| `:TaskNotesTimerToggle` | Start/stop timer for current task         |
+| `:TaskNotesTimerStatus` | Show active timer status                  |
+| `:TaskNotesTimeEntries` | View time entries for current task        |
+| `:TaskNotesByStatus`    | Browse tasks filtered by status           |
+| `:TaskNotesByPriority`  | Browse tasks filtered by priority         |
+| `:TaskNotesByContext`   | Browse tasks filtered by context          |
 
 ### Default Keymaps
 
-| Keymap | Command | Description |
-|--------|---------|-------------|
-| `<leader>tb` | `TaskNotesBrowse` | Browse tasks |
-| `<leader>tn` | `TaskNotesNew` | Create new task |
-| `<leader>te` | `TaskNotesEdit` | Edit current task |
-| `<leader>tt` | `TaskNotesTimerToggle` | Toggle timer |
+| Keymap       | Command                | Description       |
+| ------------ | ---------------------- | ----------------- |
+| `<leader>tb` | `TaskNotesBrowse`      | Browse tasks      |
+| `<leader>tn` | `TaskNotesNew`         | Create new task   |
+| `<leader>te` | `TaskNotesEdit`        | Edit current task |
+| `<leader>tt` | `TaskNotesTimerToggle` | Toggle timer      |
 
 ### Telescope Actions
 
 When browsing tasks with Telescope, the following actions are available:
 
-| Keymap | Action |
-|--------|--------|
-| `<CR>` | Open task file |
-| `<C-d>` | Mark task as done |
-| `<C-e>` | Edit task metadata |
-| `<C-x>` | Delete task |
+| Keymap  | Action                |
+| ------- | --------------------- |
+| `<CR>`  | Open task file        |
+| `<C-d>` | Mark task as done     |
+| `<C-e>` | Edit task metadata    |
+| `<C-x>` | Delete task           |
 | `<C-t>` | Toggle timer for task |
 
 ## TaskNotes File Format
@@ -203,21 +205,21 @@ Can include any markdown content.
 
 ### Frontmatter Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | string | Task title |
-| `status` | string | Current status (open, in-progress, done) |
-| `priority` | string | Priority level (none, low, normal, high) |
-| `due` | string | Due date (YYYY-MM-DD) |
-| `scheduled` | string | Scheduled date (YYYY-MM-DD) |
-| `contexts` | array | Location/tool contexts (e.g., @home, @work) |
-| `projects` | array | Related projects (wikilinks) |
-| `tags` | array | Tags |
-| `timeEstimate` | number | Estimated time in minutes |
-| `timeEntries` | array | Time tracking entries |
-| `completedDate` | string | When task was completed |
-| `dateCreated` | string | Creation timestamp (ISO) |
-| `dateModified` | string | Last modification timestamp (ISO) |
+| Field           | Type   | Description                                 |
+| --------------- | ------ | ------------------------------------------- |
+| `title`         | string | Task title                                  |
+| `status`        | string | Current status (open, in-progress, done)    |
+| `priority`      | string | Priority level (none, low, normal, high)    |
+| `due`           | string | Due date (YYYY-MM-DD)                       |
+| `scheduled`     | string | Scheduled date (YYYY-MM-DD)                 |
+| `contexts`      | array  | Location/tool contexts (e.g., @home, @work) |
+| `projects`      | array  | Related projects (wikilinks)                |
+| `tags`          | array  | Tags                                        |
+| `timeEstimate`  | number | Estimated time in minutes                   |
+| `timeEntries`   | array  | Time tracking entries                       |
+| `completedDate` | string | When task was completed                     |
+| `dateCreated`   | string | Creation timestamp (ISO)                    |
+| `dateModified`  | string | Last modification timestamp (ISO)           |
 
 ## Time Tracking
 
@@ -302,9 +304,23 @@ local tasks = tasknotes.task_manager.get_tasks()
 local task = tasknotes.task_manager.get_task_by_path("/path/to/task.md")
 ```
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for planned features and improvements including:
+
+- Recurring tasks support
+- Task dependencies
+- Reminders integration
+- Testing infrastructure
+- Calendar integration
+- Export functionality
+- And more...
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
