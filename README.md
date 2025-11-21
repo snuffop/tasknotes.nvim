@@ -119,6 +119,7 @@ require("tasknotes").setup({
   telescope = {
     enabled = true,
     theme = "dropdown",
+    dim_completed = true, -- Grey out completed tasks in the picker
   },
 
   -- Time tracking

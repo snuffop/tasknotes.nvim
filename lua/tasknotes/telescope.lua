@@ -44,6 +44,17 @@ local function make_display(opts)
     local status_info = config.get_status(task.status)
     local priority_info = config.get_priority(task.priority)
 
+    -- Check if task is completed and dimming is enabled
+    local is_completed = status_info.is_completed
+    local should_dim = is_completed and opts.telescope.dim_completed
+
+    -- Choose highlight group based on completion status
+    local title_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsIdentifier"
+    local status_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsComment"
+    local priority_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsConstant"
+    local due_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsNumber"
+    local contexts_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsSpecialComment"
+
     -- Format due date
     local due_str = safe_string(task.due)
 
@@ -51,11 +62,11 @@ local function make_display(opts)
     local contexts_str = table.concat(task.contexts or {}, ", ")
 
     return displayer({
-      { safe_string(task.title), "TelescopeResultsIdentifier" },
-      { status_info.display, "TelescopeResultsComment" },
-      { priority_info.display, "TelescopeResultsConstant" },
-      { due_str, "TelescopeResultsNumber" },
-      { contexts_str, "TelescopeResultsSpecialComment" },
+      { safe_string(task.title), title_hl },
+      { status_info.display, status_hl },
+      { priority_info.display, priority_hl },
+      { due_str, due_hl },
+      { contexts_str, contexts_hl },
     })
   end
 end

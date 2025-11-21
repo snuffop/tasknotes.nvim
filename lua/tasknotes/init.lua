@@ -28,10 +28,21 @@ local function check_dependencies()
   return warnings
 end
 
+-- Setup highlight groups for completed tasks
+local function setup_highlights()
+  -- Create dimmed/greyed out highlight group for completed tasks
+  vim.api.nvim_set_hl(0, "TaskNotesCompletedTitle", {
+    link = "Comment",  -- Link to Comment by default for grey color
+  })
+end
+
 -- Setup function
 function M.setup(user_config)
   -- Setup configuration
   config.setup(user_config or {})
+
+  -- Setup highlight groups
+  setup_highlights()
 
   local opts = config.get()
 
