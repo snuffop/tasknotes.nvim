@@ -15,6 +15,14 @@ local entry_display = require("telescope.pickers.entry_display")
 local task_manager = require("tasknotes.task_manager")
 local config = require("tasknotes.config")
 
+-- Helper function to safely convert values to strings (handles vim.NIL)
+local function safe_string(value)
+  if value == nil or value == vim.NIL then
+    return ""
+  end
+  return tostring(value)
+end
+
 -- Format task for display
 local function make_display(opts)
   local displayer = entry_display.create({
@@ -37,13 +45,13 @@ local function make_display(opts)
     local priority_info = config.get_priority(task.priority)
 
     -- Format due date
-    local due_str = task.due and task.due or ""
+    local due_str = safe_string(task.due)
 
     -- Format contexts
     local contexts_str = table.concat(task.contexts or {}, ", ")
 
     return displayer({
-      { task.title, "TelescopeResultsIdentifier" },
+      { safe_string(task.title), "TelescopeResultsIdentifier" },
       { status_info.display, "TelescopeResultsComment" },
       { priority_info.display, "TelescopeResultsConstant" },
       { due_str, "TelescopeResultsNumber" },
@@ -57,7 +65,7 @@ local function make_entry(task)
   return {
     value = task,
     display = make_display(),
-    ordinal = task.title .. " " .. task.status .. " " .. (task.due or ""),
+    ordinal = safe_string(task.title) .. " " .. safe_string(task.status) .. " " .. safe_string(task.due),
     path = task.path,
   }
 end

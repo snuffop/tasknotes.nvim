@@ -311,10 +311,60 @@ See [ROADMAP.md](ROADMAP.md) for planned features and improvements including:
 - Recurring tasks support
 - Task dependencies
 - Reminders integration
-- Testing infrastructure
 - Calendar integration
 - Export functionality
 - And more...
+
+## Development
+
+### Running Tests
+
+This plugin uses [mini.test](https://github.com/echasnovski/mini.nvim/blob/main/readmes/mini-test.md) for testing.
+
+#### Prerequisites
+
+Install mini.nvim (if not already installed):
+
+```lua
+-- Using lazy.nvim
+{ 'echasnovski/mini.nvim' }
+```
+
+#### Run all tests
+
+```bash
+make test
+```
+
+#### Run a specific test file
+
+```bash
+make test-file FILE=tests/test_parser.lua
+make test-task-manager
+make test-telescope
+```
+
+#### Run tests with verbose output
+
+```bash
+make test-verbose
+```
+
+### Test Structure
+
+Tests are organized in the `tests/` directory:
+
+- `tests/test_parser.lua` - YAML frontmatter parsing tests
+- `tests/test_task_manager.lua` - Task object creation and management tests
+- `tests/test_telescope.lua` - Telescope integration tests (includes regression tests)
+- `tests/helpers.lua` - Shared test utilities
+
+### Development Workflow
+
+1. Make changes to the plugin code
+2. Write tests for new functionality
+3. Run tests to ensure nothing breaks: `make test`
+4. Submit a pull request
 
 ## Contributing
 

@@ -7,6 +7,14 @@ local parser = require("tasknotes.parser")
 M.tasks = {}
 M.tasks_by_path = {}
 
+-- Helper to handle vim.NIL from YAML parser
+local function normalize_value(value, default)
+  if value == nil or value == vim.NIL then
+    return default
+  end
+  return value
+end
+
 -- Check if a file is a task file based on identification method
 local function is_task_file(frontmatter)
   local opts = config.get()
@@ -72,22 +80,22 @@ function M.create_task_object(filepath, frontmatter, body)
   local opts = config.get()
   local fm = opts.field_mapping
 
-  -- Extract mapped fields
+  -- Extract mapped fields with proper vim.NIL handling
   local task = {
     path = filepath,
-    title = frontmatter[fm.title] or "",
-    status = frontmatter[fm.status] or "open",
-    priority = frontmatter[fm.priority] or "none",
-    due = frontmatter[fm.due],
-    scheduled = frontmatter[fm.scheduled],
-    contexts = frontmatter[fm.contexts] or {},
-    projects = frontmatter[fm.projects] or {},
-    tags = frontmatter[fm.tags] or {},
-    timeEstimate = frontmatter[fm.timeEstimate],
-    timeEntries = frontmatter[fm.timeEntries] or {},
-    completedDate = frontmatter[fm.completedDate],
-    dateCreated = frontmatter[fm.dateCreated],
-    dateModified = frontmatter[fm.dateModified],
+    title = normalize_value(frontmatter[fm.title], ""),
+    status = normalize_value(frontmatter[fm.status], "open"),
+    priority = normalize_value(frontmatter[fm.priority], "none"),
+    due = normalize_value(frontmatter[fm.due], nil),
+    scheduled = normalize_value(frontmatter[fm.scheduled], nil),
+    contexts = normalize_value(frontmatter[fm.contexts], {}),
+    projects = normalize_value(frontmatter[fm.projects], {}),
+    tags = normalize_value(frontmatter[fm.tags], {}),
+    timeEstimate = normalize_value(frontmatter[fm.timeEstimate], nil),
+    timeEntries = normalize_value(frontmatter[fm.timeEntries], {}),
+    completedDate = normalize_value(frontmatter[fm.completedDate], nil),
+    dateCreated = normalize_value(frontmatter[fm.dateCreated], nil),
+    dateModified = normalize_value(frontmatter[fm.dateModified], nil),
     body = body or "",
   }
 
