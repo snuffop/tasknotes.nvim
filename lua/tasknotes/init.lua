@@ -38,8 +38,24 @@ end
 
 -- Setup function
 function M.setup(user_config)
+  user_config = user_config or {}
+
+  -- Import from Obsidian if enabled
+  if user_config.obsidian and user_config.obsidian.enabled then
+    local importer = require("tasknotes.obsidian_importer")
+    local imported_config, err = importer.import_from_obsidian(user_config.obsidian.vault_path)
+
+    if imported_config then
+      -- Merge imported config with user config (user config takes precedence)
+      user_config = vim.tbl_deep_extend("force", imported_config, user_config)
+      vim.notify("Imported settings from Obsidian TaskNotes", vim.log.levels.INFO)
+    else
+      vim.notify("Could not import Obsidian settings: " .. (err or "unknown error"), vim.log.levels.WARN)
+    end
+  end
+
   -- Setup configuration
-  config.setup(user_config or {})
+  config.setup(user_config)
 
   -- Setup highlight groups
   setup_highlights()
@@ -207,6 +223,26 @@ function M.statusline()
   end
 
   return ""
+end
+
+-- Import settings from Obsidian TaskNotes plugin
+function M.import_obsidian_settings(obsidian_vault_path)
+  local importer = require("tasknotes.obsidian_importer")
+
+  local nvim_config, err = importer.import_from_obsidian(obsidian_vault_path)
+  if not nvim_config then
+    vim.notify("Failed to import Obsidian settings: " .. err, vim.log.levels.ERROR)
+    return nil
+  end
+
+  -- Apply imported config
+  config.setup(nvim_config)
+
+  -- Rescan vault with new settings
+  task_manager.scan_vault()
+
+  vim.notify("Successfully imported settings from Obsidian", vim.log.levels.INFO)
+  return nvim_config
 end
 
 -- Export public API

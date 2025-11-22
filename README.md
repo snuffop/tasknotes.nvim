@@ -138,22 +138,66 @@ require("tasknotes").setup({
 })
 ```
 
+## Obsidian Integration
+
+You can automatically import settings from the [Obsidian TaskNotes](https://github.com/joshklein/obsidian-tasknotes) plugin. This allows you to maintain a single source of configuration in Obsidian and sync it to Neovim.
+
+### Automatic Import on Setup
+
+Enable auto-import in your configuration:
+
+```lua
+require("tasknotes").setup({
+  obsidian = {
+    enabled = true,
+    vault_path = "~/sync/claude-vault",  -- Path to your Obsidian vault
+  },
+})
+```
+
+When enabled, tasknotes.nvim will:
+
+- Read settings from `.obsidian/plugins/tasknotes/data.json`
+- Import task folder location, identification method, statuses, priorities, and field mappings
+- Merge with any additional settings you provide (your settings take precedence)
+
+### Manual Import
+
+You can also manually import settings with a command:
+
+```vim
+:TaskNotesImportObsidian ~/sync/claude-vault
+```
+
+### What Gets Imported
+
+The following settings are imported from Obsidian:
+
+- **Task folder**: `tasksFolder` → `vault_path`
+- **Identification method**: `taskIdentificationMethod` → `task_identification_method`
+- **Task tag**: `taskTag` → `task_tag`
+- **Task property**: `taskPropertyName/taskPropertyValue` → `task_property_name/task_property_value`
+- **Field mappings**: All frontmatter field mappings
+- **Custom statuses**: Status definitions with colors and completion flags
+- **Custom priorities**: Priority definitions with colors and weights
+
 ## Usage
 
 ### Commands
 
-| Command                 | Description                               |
-| ----------------------- | ----------------------------------------- |
-| `:TaskNotesBrowse`      | Open Telescope picker to browse all tasks |
-| `:TaskNotesNew`         | Create a new task with form               |
-| `:TaskNotesEdit`        | Edit current task metadata                |
-| `:TaskNotesRescan`      | Rescan vault directory for tasks          |
-| `:TaskNotesTimerToggle` | Start/stop timer for current task         |
-| `:TaskNotesTimerStatus` | Show active timer status                  |
-| `:TaskNotesTimeEntries` | View time entries for current task        |
-| `:TaskNotesByStatus`    | Browse tasks filtered by status           |
-| `:TaskNotesByPriority`  | Browse tasks filtered by priority         |
-| `:TaskNotesByContext`   | Browse tasks filtered by context          |
+| Command                           | Description                               |
+| --------------------------------- | ----------------------------------------- |
+| `:TaskNotesBrowse`                | Open Telescope picker to browse all tasks |
+| `:TaskNotesNew`                   | Create a new task with form               |
+| `:TaskNotesEdit`                  | Edit current task metadata                |
+| `:TaskNotesRescan`                | Rescan vault directory for tasks          |
+| `:TaskNotesTimerToggle`           | Start/stop timer for current task         |
+| `:TaskNotesTimerStatus`           | Show active timer status                  |
+| `:TaskNotesTimeEntries`           | View time entries for current task        |
+| `:TaskNotesByStatus`              | Browse tasks filtered by status           |
+| `:TaskNotesByPriority`            | Browse tasks filtered by priority         |
+| `:TaskNotesByContext`             | Browse tasks filtered by context          |
+| `:TaskNotesImportObsidian <path>` | Import settings from Obsidian vault       |
 
 ### Default Keymaps
 

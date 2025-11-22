@@ -5,6 +5,12 @@ local defaults = {
   -- Path to TaskNotes vault directory
   vault_path = vim.fn.expand("~/notes/tasks"),
 
+  -- Obsidian integration
+  obsidian = {
+    enabled = false,  -- Set to true to auto-import settings from Obsidian
+    vault_path = vim.fn.expand("~/sync/vault"),  -- Path to Obsidian vault
+  },
+
   -- Task identification method
   task_identification_method = "tag", -- "tag" or "property"
   task_tag = "task",

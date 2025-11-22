@@ -22,5 +22,8 @@ command! TaskNotesByStatus lua require('tasknotes').browse_tasks({status = vim.f
 command! TaskNotesByPriority lua require('tasknotes').browse_tasks({priority = vim.fn.input('Priority: ')})
 command! TaskNotesByContext lua require('tasknotes').browse_tasks({context = vim.fn.input('Context: ')})
 
+" Obsidian integration
+command! -nargs=1 TaskNotesImportObsidian lua require('tasknotes').import_obsidian_settings(<f-args>)
+
 " Telescope extension commands (if available)
 command! -nargs=? TaskNotesTelescope lua require('telescope').extensions.tasknotes.tasks({filter = <q-args>})
