@@ -1,0 +1,195 @@
+-- Tests for tasknotes.task_manager module
+local new_set = MiniTest.new_set
+local expect, eq = MiniTest.expect, MiniTest.expect.equality
+local helpers = require('tests.helpers')
+
+local child = helpers.new_child_neovim()
+
+local T = new_set({
+  hooks = {
+    pre_case = function()
+      child.setup()
+      local temp_vault = child.lua_get([[vim.fn.tempname()]])
+      child.lua(string.format([[
+        vim.fn.mkdir('%s', 'p')
+        Config = require('tasknotes.config')
+        Config.setup({ vault_path = '%s' })
+        TaskManager = require('tasknotes.task_manager')
+      ]], temp_vault, temp_vault))
+    end,
+    post_once = child.stop,
+  },
+})
+
+-- Test task object creation
+T['create_task_object'] = new_set()
+
+T['create_task_object']['handles vim.NIL values'] = function()
+  -- This is the CRITICAL test for the bug fix
+  local result = child.lua_get([[
+    -- Simulate frontmatter with vim.NIL values (what YAML parser returns for null)
+    local frontmatter = {
+      title = 'Test Task',
+      status = 'open',
+      due = vim.NIL,  -- This is what causes the concatenation bug
+      priority = vim.NIL,
+      scheduled = vim.NIL,
+    }
+    return TaskManager.create_task_object('/test.md', frontmatter, 'body')
+  ]])
+
+  eq(result.title, 'Test Task')
+  eq(result.status, 'open')
+  -- These should be normalized to nil (not vim.NIL)
+  eq(result.due == nil or result.due == '', true)
+  eq(result.priority == 'none', true) -- Default value
+end
+
+T['create_task_object']['uses correct defaults'] = function()
+  local result = child.lua_get([[
+    local frontmatter = { title = 'Minimal Task' }
+    return TaskManager.create_task_object('/test.md', frontmatter, '')
+  ]])
+
+  eq(result.title, 'Minimal Task')
+  eq(result.status, 'open')  -- default
+  eq(result.priority, 'none')  -- default
+  eq(type(result.contexts), 'table')
+  eq(#result.contexts, 0)
+  eq(type(result.projects), 'table')
+  eq(type(result.tags), 'table')
+end
+
+T['create_task_object']['converts string arrays to tables'] = function()
+  local result = child.lua_get([[
+    local frontmatter = {
+      title = 'Test',
+      contexts = '@home',  -- String instead of array
+      projects = '[[Project]]',  -- String instead of array
+    }
+    return TaskManager.create_task_object('/test.md', frontmatter, '')
+  ]])
+
+  eq(type(result.contexts), 'table')
+  eq(#result.contexts, 1)
+  eq(result.contexts[1], '@home')
+  eq(type(result.projects), 'table')
+  eq(result.projects[1], '[[Project]]')
+end
+
+T['create_task_object']['preserves all frontmatter fields'] = function()
+  local result = child.lua_get([[
+    local frontmatter = {
+      title = 'Complete Task',
+      status = 'in-progress',
+      priority = 'high',
+      due = '2025-12-31',
+      scheduled = '2025-12-01',
+      contexts = { '@office' },
+      projects = { '[[Work]]' },
+      tags = { 'task', 'urgent' },
+      timeEstimate = 120,
+      dateCreated = '2025-01-01T00:00:00Z',
+    }
+    return TaskManager.create_task_object('/test.md', frontmatter, 'Task body')
+  ]])
+
+  eq(result.title, 'Complete Task')
+  eq(result.status, 'in-progress')
+  eq(result.priority, 'high')
+  eq(result.due, '2025-12-31')
+  eq(result.scheduled, '2025-12-01')
+  eq(result.timeEstimate, 120)
+  eq(result.body, 'Task body')
+end
+
+-- Test task identification methods
+T['task_identification'] = new_set()
+
+T['task_identification']['tag-based identification works'] = function()
+  child.lua([[
+    Config.options.task_identification_method = 'tag'
+    Config.options.task_tag = 'task'
+  ]])
+
+  local vault_path = helpers.create_test_vault(child)
+
+  -- Create a task with tag
+  helpers.create_test_task(child, vault_path, {
+    title = 'Tagged Task',
+    tags = { 'task', 'work' },
+  }, 'Body')
+
+  -- Create a non-task (no task tag)
+  helpers.create_test_task(child, vault_path, {
+    title = 'Not a Task',
+    tags = { 'note' },
+  }, 'Body')
+
+  child.lua(string.format([[
+    Config.options.vault_path = '%s'
+    TaskManager.scan_vault()
+  ]], vault_path))
+
+  local task_count = child.lua_get([[#TaskManager.tasks]])
+  eq(task_count, 1) -- Only the tagged task should be found
+
+  helpers.cleanup_vault(child, vault_path)
+end
+
+T['task_identification']['property-based identification works'] = function()
+  child.lua([[
+    Config.options.task_identification_method = 'property'
+    Config.options.task_property_name = 'type'
+    Config.options.task_property_value = 'task'
+  ]])
+
+  local vault_path = helpers.create_test_vault(child)
+
+  -- Create a task with type property
+  helpers.create_test_task(child, vault_path, {
+    title = 'Property Task',
+    type = 'task',
+  }, 'Body')
+
+  -- Create a non-task (different type)
+  helpers.create_test_task(child, vault_path, {
+    title = 'Not a Task',
+    type = 'note',
+  }, 'Body')
+
+  child.lua(string.format([[
+    Config.options.vault_path = '%s'
+    TaskManager.scan_vault()
+  ]], vault_path))
+
+  local task_count = child.lua_get([[#TaskManager.tasks]])
+  eq(task_count, 1) -- Only the property-matching task should be found
+
+  helpers.cleanup_vault(child, vault_path)
+end
+
+-- Test time calculation
+T['calculate_total_time'] = new_set()
+
+T['calculate_total_time']['calculates total from entries'] = function()
+  local result = child.lua_get([[
+    local entries = {
+      { startTime = '2025-01-15T10:00:00Z', endTime = '2025-01-15T11:00:00Z', duration = 60 },
+      { startTime = '2025-01-15T14:00:00Z', endTime = '2025-01-15T14:30:00Z', duration = 30 },
+    }
+    return TaskManager.calculate_total_time(entries)
+  ]])
+
+  eq(result, 90) -- 60 + 30 minutes
+end
+
+T['calculate_total_time']['handles empty entries'] = function()
+  local result = child.lua_get([[
+    return TaskManager.calculate_total_time({})
+  ]])
+
+  eq(result, 0)
+end
+
+return T
