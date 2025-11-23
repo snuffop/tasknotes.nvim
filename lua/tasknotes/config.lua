@@ -76,6 +76,12 @@ local defaults = {
     auto_save_interval = 60, -- seconds
   },
 
+  -- Cache configuration
+  cache = {
+    enabled = true,
+    filename = ".tasknotes_cache.json", -- Cache file name in vault directory
+  },
+
   -- Keymaps
   keymaps = {
     browse = "<leader>tb",

@@ -2,6 +2,7 @@ local M = {}
 
 local config = require("tasknotes.config")
 local parser = require("tasknotes.parser")
+local cache_module = require("tasknotes.cache")
 
 -- Task cache
 M.tasks = {}
@@ -58,21 +59,98 @@ function M.scan_vault()
   local find_cmd = string.format("find '%s' -type f -name '*.md'", vault_path)
   local files = vim.fn.systemlist(find_cmd)
 
+  -- Create a set of all current files for quick lookup
+  local current_files = {}
+  for _, filepath in ipairs(files) do
+    current_files[filepath] = true
+  end
+
   M.tasks = {}
   M.tasks_by_path = {}
 
+  -- Try to load cache if enabled
+  local persistent_cache = nil
+  local cache_path = nil
+  local files_parsed = 0
+  local files_from_cache = 0
+
+  if opts.cache.enabled then
+    cache_path = vault_path .. "/" .. opts.cache.filename
+    persistent_cache, err = cache_module.load(cache_path)
+
+    if persistent_cache then
+      vim.notify("Loaded task cache, checking for changes...", vim.log.levels.INFO)
+    else
+      vim.notify("Cache not found or invalid (" .. (err or "unknown error") .. "), performing full scan", vim.log.levels.INFO)
+      persistent_cache = cache_module.new()
+    end
+  else
+    persistent_cache = cache_module.new()
+  end
+
+  -- Process all files
   for _, filepath in ipairs(files) do
-    local parsed = parser.parse_file(filepath)
-    if parsed and parsed.frontmatter then
-      if is_task_file(parsed.frontmatter) then
-        local task = M.create_task_object(filepath, parsed.frontmatter, parsed.body)
+    local cached_entry = persistent_cache.tasks[filepath]
+    local current_mtime = cache_module.get_mtime(filepath)
+
+    -- Check if we can use cached data
+    if cached_entry and cached_entry.mtime == current_mtime then
+      -- File hasn't changed, use cached task object
+      local task = cached_entry.task
+      if task then
         table.insert(M.tasks, task)
         M.tasks_by_path[filepath] = task
+        files_from_cache = files_from_cache + 1
+      end
+    else
+      -- File is new or changed, parse it
+      local parsed = parser.parse_file(filepath)
+      if parsed and parsed.frontmatter then
+        if is_task_file(parsed.frontmatter) then
+          local task = M.create_task_object(filepath, parsed.frontmatter, parsed.body)
+          table.insert(M.tasks, task)
+          M.tasks_by_path[filepath] = task
+
+          -- Update cache
+          persistent_cache.tasks[filepath] = {
+            mtime = current_mtime,
+            task = task,
+          }
+          files_parsed = files_parsed + 1
+        else
+          -- Not a task file, remove from cache if present
+          persistent_cache.tasks[filepath] = nil
+        end
+      else
+        -- Failed to parse, remove from cache if present
+        persistent_cache.tasks[filepath] = nil
       end
     end
   end
 
-  vim.notify(string.format("Found %d tasks", #M.tasks), vim.log.levels.INFO)
+  -- Remove deleted files from cache
+  for cached_filepath, _ in pairs(persistent_cache.tasks) do
+    if not current_files[cached_filepath] then
+      persistent_cache.tasks[cached_filepath] = nil
+    end
+  end
+
+  -- Save updated cache
+  if opts.cache.enabled and cache_path then
+    local success, err = cache_module.save(cache_path, persistent_cache)
+    if not success then
+      vim.notify("Failed to save cache: " .. (err or "unknown error"), vim.log.levels.WARN)
+    end
+  end
+
+  if files_from_cache > 0 then
+    vim.notify(
+      string.format("Found %d tasks (%d from cache, %d parsed)", #M.tasks, files_from_cache, files_parsed),
+      vim.log.levels.INFO
+    )
+  else
+    vim.notify(string.format("Found %d tasks", #M.tasks), vim.log.levels.INFO)
+  end
 end
 
 -- Create a task object from frontmatter
@@ -288,7 +366,7 @@ function M.update_task(filepath, updates)
     return false
   end
 
-  -- Update cache
+  -- Update in-memory cache
   local task = M.create_task_object(filepath, parsed.frontmatter, parsed.body)
   M.tasks_by_path[filepath] = task
 
@@ -299,6 +377,9 @@ function M.update_task(filepath, updates)
       break
     end
   end
+
+  -- Update persistent cache
+  update_cache_file(filepath, task)
 
   return true
 end
@@ -312,7 +393,7 @@ function M.delete_task(filepath)
     return false
   end
 
-  -- Remove from cache
+  -- Remove from in-memory cache
   M.tasks_by_path[filepath] = nil
   for i, task in ipairs(M.tasks) do
     if task.path == filepath then
@@ -321,8 +402,43 @@ function M.delete_task(filepath)
     end
   end
 
+  -- Remove from persistent cache
+  update_cache_file(filepath, nil)
+
   vim.notify("Deleted task", vim.log.levels.INFO)
   return true
+end
+
+-- Helper function to update cache file
+local function update_cache_file(filepath, task)
+  local opts = config.get()
+  if not opts.cache.enabled then
+    return
+  end
+
+  local vault_path = opts.vault_path
+  local cache_path = vault_path .. "/" .. opts.cache.filename
+
+  -- Load existing cache
+  local persistent_cache = cache_module.load(cache_path)
+  if not persistent_cache then
+    persistent_cache = cache_module.new()
+  end
+
+  -- Update cache entry
+  if task then
+    local mtime = cache_module.get_mtime(filepath)
+    persistent_cache.tasks[filepath] = {
+      mtime = mtime,
+      task = task,
+    }
+  else
+    -- Remove from cache
+    persistent_cache.tasks[filepath] = nil
+  end
+
+  -- Save cache
+  cache_module.save(cache_path, persistent_cache)
 end
 
 -- Refresh a single task from disk
@@ -352,6 +468,9 @@ function M.refresh_task(filepath)
   if not found then
     table.insert(M.tasks, task)
   end
+
+  -- Update cache
+  update_cache_file(filepath, task)
 
   return true
 end

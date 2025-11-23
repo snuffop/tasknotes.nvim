@@ -32,7 +32,9 @@ end
 local function setup_highlights()
   -- Create dimmed/greyed out highlight group for completed tasks
   vim.api.nvim_set_hl(0, "TaskNotesCompletedTitle", {
-    link = "Comment",  -- Link to Comment by default for grey color
+    fg = "#6c6c6c",        -- Dim gray color that works on both light/dark backgrounds
+    strikethrough = true,  -- Clear visual indication that task is done
+    italic = true,         -- Additional subtle cue
   })
 end
 
