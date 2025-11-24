@@ -29,11 +29,12 @@ local function make_display(opts)
     separator = " ",
     items = {
       { width = 2 },  -- Dependency indicator
-      { width = 38 },
-      { width = 12 },
-      { width = 10 },
-      { width = 12 },
-      { remaining = true },
+      { width = 5 },  -- Urgency score
+      { width = 35 }, -- Title (reduced to fit urgency)
+      { width = 12 }, -- Status
+      { width = 10 }, -- Priority
+      { width = 12 }, -- Due date
+      { remaining = true }, -- Contexts
     },
   })
 
@@ -55,6 +56,7 @@ local function make_display(opts)
     local priority_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsConstant"
     local due_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsNumber"
     local contexts_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsSpecialComment"
+    local urgency_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsNumber"
 
     -- Determine dependency indicator
     local dep_indicator = " "
@@ -74,6 +76,9 @@ local function make_display(opts)
       end
     end
 
+    -- Format urgency score
+    local urgency_str = string.format("%.1f", task.urgency or 0)
+
     -- Format due date
     local due_str = safe_string(task.due)
 
@@ -82,6 +87,7 @@ local function make_display(opts)
 
     return displayer({
       { dep_indicator, dep_hl },
+      { urgency_str, urgency_hl },
       { safe_string(task.title), title_hl },
       { status_info.display, status_hl },
       { priority_info.display, priority_hl },
@@ -98,7 +104,44 @@ local function make_entry(task)
     display = make_display(),
     ordinal = safe_string(task.title) .. " " .. safe_string(task.status) .. " " .. safe_string(task.due),
     path = task.path,
+    urgency = task.urgency or 0,  -- Store for custom sorter
   }
+end
+
+-- Create custom sorter that combines urgency with fuzzy matching
+local function create_urgency_sorter()
+  local sorters = require("telescope.sorters")
+  local urgency_module = require("tasknotes.urgency")
+
+  -- Get the base fuzzy sorter
+  local base_sorter = conf.generic_sorter({})
+
+  return sorters.Sorter:new({
+    scoring_function = function(self, prompt, line, entry)
+      -- Get base fuzzy match score (lower is better)
+      -- Note: base_sorter expects (self, prompt, line)
+      local fuzzy_score = base_sorter:scoring_function(prompt, line)
+
+      -- If there's no fuzzy score, return a high value (low priority)
+      if not fuzzy_score or fuzzy_score == -1 then
+        fuzzy_score = 1000
+      end
+
+      -- Combine urgency with fuzzy score
+      -- urgency_module.combine_with_fuzzy_score handles the weighting
+      local combined_score = urgency_module.combine_with_fuzzy_score(
+        entry.urgency,
+        fuzzy_score,
+        config.get()
+      )
+
+      return combined_score
+    end,
+
+    highlighter = function(self, prompt, display)
+      return base_sorter:highlighter(prompt, display)
+    end,
+  })
 end
 
 -- Browse all tasks
@@ -118,6 +161,10 @@ function M.browse_tasks(opts)
     return
   end
 
+  -- Pre-sort tasks by urgency (descending)
+  local urgency_module = require("tasknotes.urgency")
+  tasks = urgency_module.sort_by_urgency(tasks)
+
   pickers
     .new(opts, {
       prompt_title = "TaskNotes",
@@ -125,7 +172,7 @@ function M.browse_tasks(opts)
         results = tasks,
         entry_maker = make_entry,
       }),
-      sorter = conf.generic_sorter(opts),
+      sorter = create_urgency_sorter(),  -- Use custom urgency sorter
       previewer = conf.file_previewer(opts),
       attach_mappings = function(prompt_bufnr, map)
         -- Default action: open file

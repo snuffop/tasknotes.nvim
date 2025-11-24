@@ -69,6 +69,7 @@ local defaults = {
     enabled = true,
     theme = "dropdown",
     dim_completed = true, -- Grey out completed tasks in the picker
+    hide_completed = true, -- Filter out completed tasks from default view
   },
 
   -- Time tracking
@@ -84,6 +85,39 @@ local defaults = {
     validate_on_startup = false, -- Skip validation on startup for faster loading
     background_validation_delay = 500, -- ms to wait before background validation
     validation_interval = 300, -- seconds between validations (5 minutes)
+  },
+
+  -- Urgency scoring system (based on Taskwarrior)
+  urgency = {
+    enabled = true,
+    default_sort = "urgency", -- "urgency", "alpha", "modified", "created", "due"
+
+    -- Coefficient weights for urgency calculation
+    coefficients = {
+      -- CORE FACTORS (implemented)
+      due_proximity = 12.0,      -- Weight for due date urgency (scaled 0-1)
+      priority_high = 6.0,       -- High priority tasks
+      priority_normal = 3.0,     -- Normal priority tasks
+      priority_low = 1.8,        -- Low priority tasks
+      in_progress = 4.0,         -- Task already started
+      blocking_count = 5.0,      -- Per task blocked by this one
+      is_blocked = -5.0,         -- Task is blocked by incomplete dependencies
+
+      -- TODO: Future factors (not yet implemented)
+      -- scheduled_proximity = 2.5,  -- Weight for scheduled date urgency (scaled 0-1)
+      -- age = 2.0,                  -- Weight for task age (scaled 0-1)
+      -- tag_count = 1.0,            -- Scaled by tag count (0.8/0.9/1.0 for 1/2/3+)
+      -- project_count = 1.0,        -- Scaled by project count (0.8/0.9/1.0)
+      -- context_count = 0.5,        -- Has context assignment
+      -- has_estimate = 1.0,         -- Task has time estimate
+    },
+
+    -- Date scaling parameters
+    date_scaling = {
+      due_max_days = 30,         -- Days out where due urgency reaches 0
+      scheduled_max_days = 14,   -- Days out where scheduled urgency reaches 0 (TODO)
+      age_max_days = 90,         -- Days old where age urgency maxes out (TODO)
+    },
   },
 
   -- Keymaps

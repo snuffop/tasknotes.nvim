@@ -243,6 +243,15 @@ function M.create_task_object(filepath, frontmatter, body)
   -- Calculate total tracked time
   task.totalTrackedTime = M.calculate_total_time(task.timeEntries)
 
+  -- Calculate urgency score
+  local urgency_config = config.get()
+  if urgency_config.urgency and urgency_config.urgency.enabled then
+    local urgency = require("tasknotes.urgency")
+    task.urgency = urgency.calculate_urgency(task, urgency_config)
+  else
+    task.urgency = 0
+  end
+
   return task
 end
 
@@ -291,45 +300,55 @@ end
 
 -- Get all tasks (optionally filtered)
 function M.get_tasks(filter)
-  if not filter then
-    return M.tasks
-  end
+  local opts = config.get()
+  local hide_completed = opts.telescope and opts.telescope.hide_completed
 
   local filtered = {}
   for _, task in ipairs(M.tasks) do
     local matches = true
 
-    if filter.status and task.status ~= filter.status then
-      matches = false
-    end
-
-    if filter.priority and task.priority ~= filter.priority then
-      matches = false
-    end
-
-    if filter.context then
-      local has_context = false
-      for _, ctx in ipairs(task.contexts) do
-        if ctx == filter.context then
-          has_context = true
-          break
-        end
-      end
-      if not has_context then
+    -- Filter out completed tasks if hide_completed is enabled
+    if hide_completed then
+      local status_def = config.get_status(task.status)
+      if status_def.is_completed then
         matches = false
       end
     end
 
-    if filter.project then
-      local has_project = false
-      for _, proj in ipairs(task.projects) do
-        if proj:match(filter.project) then
-          has_project = true
-          break
+    -- Apply additional filters if provided
+    if filter then
+      if filter.status and task.status ~= filter.status then
+        matches = false
+      end
+
+      if filter.priority and task.priority ~= filter.priority then
+        matches = false
+      end
+
+      if filter.context then
+        local has_context = false
+        for _, ctx in ipairs(task.contexts) do
+          if ctx == filter.context then
+            has_context = true
+            break
+          end
+        end
+        if not has_context then
+          matches = false
         end
       end
-      if not has_project then
-        matches = false
+
+      if filter.project then
+        local has_project = false
+        for _, proj in ipairs(task.projects) do
+          if proj:match(filter.project) then
+            has_project = true
+            break
+          end
+        end
+        if not has_project then
+          matches = false
+        end
       end
     end
 
