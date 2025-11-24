@@ -7,6 +7,7 @@ local cache_module = require("tasknotes.cache")
 -- Task cache
 M.tasks = {}
 M.tasks_by_path = {}
+M.is_loaded = false -- Track if initial scan completed
 
 -- Helper to handle vim.NIL from YAML parser
 local function normalize_value(value, default)
@@ -46,7 +47,7 @@ local function is_task_file(frontmatter)
 end
 
 -- Scan vault and discover all task files
-function M.scan_vault()
+function M.scan_vault(force_validate)
   local opts = config.get()
   local vault_path = opts.vault_path
 
@@ -55,9 +56,54 @@ function M.scan_vault()
     return
   end
 
-  -- Find all markdown files
-  local find_cmd = string.format("find '%s' -type f -name '*.md'", vault_path)
-  local files = vim.fn.systemlist(find_cmd)
+  M.tasks = {}
+  M.tasks_by_path = {}
+
+  -- Try to load cache if enabled
+  local cache_path = vault_path .. "/" .. opts.cache.filename
+  local persistent_cache = nil
+
+  if opts.cache.enabled then
+    persistent_cache = cache_module.load(cache_path)
+  end
+
+  -- Fast path: trust cache without validation
+  if persistent_cache and not force_validate and not opts.cache.validate_on_startup then
+    -- Load all tasks from cache without any validation
+    for filepath, cached_entry in pairs(persistent_cache.tasks) do
+      local task = cached_entry.task
+      if task then
+        table.insert(M.tasks, task)
+        M.tasks_by_path[filepath] = task
+      end
+    end
+
+    vim.notify(
+      string.format("Loaded %d tasks from cache (instant mode)", #M.tasks),
+      vim.log.levels.INFO
+    )
+
+    -- Schedule background validation if needed
+    if cache_module.needs_validation(persistent_cache, opts.cache.validation_interval) then
+      vim.defer_fn(function()
+        M.validate_cache_async()
+      end, opts.cache.background_validation_delay)
+    end
+
+    M.is_loaded = true
+    return
+  end
+
+  -- Slow path: full validation or no cache
+  local files = {}
+  if force_validate or not persistent_cache or not persistent_cache.file_list then
+    -- Need to run find command
+    local find_cmd = string.format("find '%s' -type f -name '*.md'", vault_path)
+    files = vim.fn.systemlist(find_cmd)
+  else
+    -- Use cached file list
+    files = persistent_cache.file_list or {}
+  end
 
   -- Create a set of all current files for quick lookup
   local current_files = {}
@@ -65,28 +111,12 @@ function M.scan_vault()
     current_files[filepath] = true
   end
 
-  M.tasks = {}
-  M.tasks_by_path = {}
-
-  -- Try to load cache if enabled
-  local persistent_cache = nil
-  local cache_path = nil
-  local files_parsed = 0
-  local files_from_cache = 0
-
-  if opts.cache.enabled then
-    cache_path = vault_path .. "/" .. opts.cache.filename
-    persistent_cache, err = cache_module.load(cache_path)
-
-    if persistent_cache then
-      vim.notify("Loaded task cache, checking for changes...", vim.log.levels.INFO)
-    else
-      vim.notify("Cache not found or invalid (" .. (err or "unknown error") .. "), performing full scan", vim.log.levels.INFO)
-      persistent_cache = cache_module.new()
-    end
-  else
+  if not persistent_cache then
     persistent_cache = cache_module.new()
   end
+
+  local files_parsed = 0
+  local files_from_cache = 0
 
   -- Process all files
   for _, filepath in ipairs(files) do
@@ -135,8 +165,12 @@ function M.scan_vault()
     end
   end
 
+  -- Update cache metadata
+  persistent_cache.file_list = files
+  persistent_cache.last_validated = os.time()
+
   -- Save updated cache
-  if opts.cache.enabled and cache_path then
+  if opts.cache.enabled then
     local success, err = cache_module.save(cache_path, persistent_cache)
     if not success then
       vim.notify("Failed to save cache: " .. (err or "unknown error"), vim.log.levels.WARN)
@@ -151,6 +185,8 @@ function M.scan_vault()
   else
     vim.notify(string.format("Found %d tasks", #M.tasks), vim.log.levels.INFO)
   end
+
+  M.is_loaded = true
 end
 
 -- Create a task object from frontmatter
@@ -473,6 +509,119 @@ function M.refresh_task(filepath)
   update_cache_file(filepath, task)
 
   return true
+end
+
+-- Validate cache in background (async)
+function M.validate_cache_async()
+  local opts = config.get()
+  local vault_path = opts.vault_path
+
+  -- Run find command asynchronously
+  vim.fn.jobstart(string.format("find '%s' -type f -name '*.md'", vault_path), {
+    stdout_buffered = true,
+    on_stdout = function(_, data, _)
+      if not data then
+        return
+      end
+
+      -- Filter out empty strings
+      local files = vim.tbl_filter(function(line)
+        return line ~= ""
+      end, data)
+
+      -- Process the file list in the background
+      vim.schedule(function()
+        local cache_path = vault_path .. "/" .. opts.cache.filename
+        local persistent_cache = cache_module.load(cache_path)
+
+        if not persistent_cache then
+          -- No cache to validate, trigger full scan
+          M.scan_vault(true)
+          return
+        end
+
+        -- Create a set of current files
+        local current_files = {}
+        for _, filepath in ipairs(files) do
+          current_files[filepath] = true
+        end
+
+        local updates_needed = false
+
+        -- Check for new or changed files
+        for _, filepath in ipairs(files) do
+          local cached_entry = persistent_cache.tasks[filepath]
+          local current_mtime = cache_module.get_mtime(filepath)
+
+          if not cached_entry or cached_entry.mtime ~= current_mtime then
+            -- File is new or changed, need to update
+            local parsed = parser.parse_file(filepath)
+            if parsed and parsed.frontmatter and is_task_file(parsed.frontmatter) then
+              local task = M.create_task_object(filepath, parsed.frontmatter, parsed.body)
+
+              -- Update in-memory cache
+              M.tasks_by_path[filepath] = task
+              local found = false
+              for i, t in ipairs(M.tasks) do
+                if t.path == filepath then
+                  M.tasks[i] = task
+                  found = true
+                  break
+                end
+              end
+              if not found then
+                table.insert(M.tasks, task)
+              end
+
+              -- Update persistent cache
+              persistent_cache.tasks[filepath] = {
+                mtime = current_mtime,
+                task = task,
+              }
+              updates_needed = true
+            end
+          end
+        end
+
+        -- Check for deleted files
+        for cached_filepath, _ in pairs(persistent_cache.tasks) do
+          if not current_files[cached_filepath] then
+            persistent_cache.tasks[cached_filepath] = nil
+
+            -- Remove from in-memory cache
+            M.tasks_by_path[cached_filepath] = nil
+            for i, t in ipairs(M.tasks) do
+              if t.path == cached_filepath then
+                table.remove(M.tasks, i)
+                break
+              end
+            end
+
+            updates_needed = true
+          end
+        end
+
+        -- Update cache metadata
+        persistent_cache.file_list = files
+        persistent_cache.last_validated = os.time()
+
+        -- Save cache
+        if updates_needed or cache_module.needs_validation(persistent_cache, opts.cache.validation_interval) then
+          cache_module.save(cache_path, persistent_cache)
+          if updates_needed then
+            vim.notify("Task cache updated in background", vim.log.levels.INFO)
+          end
+        end
+      end)
+    end,
+    on_stderr = function(_, data, _)
+      if data and #data > 0 and data[1] ~= "" then
+        vim.schedule(function()
+          vim.notify("Background cache validation error: " .. table.concat(data, "\n"), vim.log.levels.WARN)
+        end)
+      end
+    end,
+  })
 end
 
 return M

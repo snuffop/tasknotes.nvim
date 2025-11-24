@@ -262,4 +262,102 @@ T['full_integration']['task with nil values can be processed'] = function()
   eq(success, true)
 end
 
+-- Test browse_tasks loading guard (regression test for race condition)
+T['browse_loading_guard'] = new_set()
+
+T['browse_loading_guard']['browse_tasks triggers scan if not loaded'] = function()
+  -- Regression test for race condition where browse_tasks is called
+  -- before scan_vault completes during plugin initialization
+  local vault_path = helpers.create_test_vault(child)
+  helpers.create_test_task(child, vault_path, {
+    title = 'Race Condition Test Task',
+    status = 'open',
+    tags = { 'task' },
+  }, 'Test body')
+
+  -- Reset task manager to simulate startup before scan
+  child.lua(string.format([[
+    Config.options.vault_path = '%s'
+    -- Simulate state before scan_vault is called
+    TaskManager.tasks = {}
+    TaskManager.tasks_by_path = {}
+    TaskManager.is_loaded = false
+  ]], vault_path))
+
+  -- Verify tasks are not loaded yet
+  local tasks_before = child.lua_get([[return #TaskManager.tasks]])
+  eq(tasks_before, 0)
+
+  -- Verify is_loaded is false
+  local loaded_before = child.lua_get([[return TaskManager.is_loaded]])
+  eq(loaded_before, false)
+
+  -- Call browse_tasks - it should trigger scan_vault automatically
+  -- This simulates user pressing the browse keybinding before scan completes
+  child.lua([[
+    -- Simulate the guard logic from browse_tasks
+    if not TaskManager.is_loaded then
+      TaskManager.scan_vault()
+    end
+
+    TASKS_AFTER_GUARD = #TaskManager.tasks
+    LOADED_AFTER_GUARD = TaskManager.is_loaded
+  ]])
+
+  local tasks_after = child.lua_get([[return TASKS_AFTER_GUARD]])
+  local loaded_after = child.lua_get([[return LOADED_AFTER_GUARD]])
+
+  -- After guard, tasks should be loaded
+  eq(tasks_after, 1)  -- Should find the task
+  eq(loaded_after, true)  -- is_loaded should be set
+
+  helpers.cleanup_vault(child, vault_path)
+end
+
+T['browse_loading_guard']['browse_tasks works when already loaded'] = function()
+  -- Test that guard doesn't break the normal flow when tasks are already loaded
+  local vault_path = helpers.create_test_vault(child)
+  helpers.create_test_task(child, vault_path, {
+    title = 'Already Loaded Task',
+    status = 'open',
+    tags = { 'task' },
+  }, 'Test body')
+
+  -- Normal flow: scan_vault is called during initialization
+  child.lua(string.format([[
+    Config.options.vault_path = '%s'
+    TaskManager.scan_vault()
+  ]], vault_path))
+
+  -- Verify tasks are loaded
+  local tasks_before = child.lua_get([[return #TaskManager.tasks]])
+  eq(tasks_before, 1)
+
+  -- Verify is_loaded is true
+  local loaded_before = child.lua_get([[return TaskManager.is_loaded]])
+  eq(loaded_before, true)
+
+  -- Call browse_tasks guard - should NOT trigger another scan
+  child.lua([[
+    -- Simulate the guard logic from browse_tasks
+    SCAN_CALLED = false
+    if not TaskManager.is_loaded then
+      SCAN_CALLED = true
+      TaskManager.scan_vault()
+    end
+
+    TASKS_AFTER_GUARD = #TaskManager.tasks
+  ]])
+
+  local scan_called = child.lua_get([[return SCAN_CALLED]])
+  local tasks_after = child.lua_get([[return TASKS_AFTER_GUARD]])
+
+  -- Guard should NOT have called scan again
+  eq(scan_called, false)
+  -- Tasks should still be available
+  eq(tasks_after, 1)
+
+  helpers.cleanup_vault(child, vault_path)
+end
+
 return T

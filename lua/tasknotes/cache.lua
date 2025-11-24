@@ -73,11 +73,23 @@ function M.get_mtime(filepath)
   return get_mtime(filepath)
 end
 
+-- Check if cache needs validation based on interval
+function M.needs_validation(cache, validation_interval)
+  if not cache or not cache.last_validated then
+    return true
+  end
+
+  local time_since_validation = os.time() - cache.last_validated
+  return time_since_validation > validation_interval
+end
+
 -- Create new empty cache
 function M.new()
   return {
     version = CACHE_VERSION,
     last_updated = os.time(),
+    last_validated = 0, -- Unix timestamp of last validation
+    file_list = {}, -- List of all .md file paths in vault
     tasks = {},
   }
 end

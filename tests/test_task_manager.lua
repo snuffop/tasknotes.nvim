@@ -192,4 +192,115 @@ T['calculate_total_time']['handles empty entries'] = function()
   eq(result, 0)
 end
 
+-- Test loading state tracking (regression test for race condition bug)
+T['loading_state_tracking'] = new_set()
+
+T['loading_state_tracking']['is_loaded is false initially'] = function()
+  -- Test that is_loaded starts as false before any scan
+  local is_loaded = child.lua_get([[
+    return TaskManager.is_loaded
+  ]])
+
+  eq(is_loaded, false)
+end
+
+T['loading_state_tracking']['is_loaded becomes true after scan_vault'] = function()
+  local vault_path = helpers.create_test_vault(child)
+  helpers.create_test_task(child, vault_path, {
+    title = 'Test Task',
+    status = 'open',
+    tags = { 'task' },
+  }, 'Test body')
+
+  child.lua(string.format([[
+    Config.options.vault_path = '%s'
+    TaskManager.scan_vault()
+  ]], vault_path))
+
+  local is_loaded = child.lua_get([[return TaskManager.is_loaded]])
+  eq(is_loaded, true)
+
+  helpers.cleanup_vault(child, vault_path)
+end
+
+T['loading_state_tracking']['is_loaded set by fast cache path'] = function()
+  local vault_path = helpers.create_test_vault(child)
+  helpers.create_test_task(child, vault_path, {
+    title = 'Cached Task',
+    status = 'open',
+    tags = { 'task' },
+  }, 'Body')
+
+  -- First scan to create cache
+  child.lua(string.format([[
+    Config.options.vault_path = '%s'
+    Config.options.cache.enabled = true
+    TaskManager.scan_vault()
+  ]], vault_path))
+
+  -- Reset is_loaded flag to simulate restart
+  child.lua([[
+    TaskManager.is_loaded = false
+    TaskManager.tasks = {}
+    TaskManager.tasks_by_path = {}
+  ]])
+
+  -- Second scan should use fast cache path
+  child.lua([[TaskManager.scan_vault()]])
+
+  local is_loaded = child.lua_get([[return TaskManager.is_loaded]])
+  eq(is_loaded, true)
+
+  helpers.cleanup_vault(child, vault_path)
+end
+
+T['loading_state_tracking']['is_loaded set by slow validation path'] = function()
+  local vault_path = helpers.create_test_vault(child)
+  helpers.create_test_task(child, vault_path, {
+    title = 'Validated Task',
+    status = 'open',
+    tags = { 'task' },
+  }, 'Body')
+
+  -- Scan with validation (slow path)
+  child.lua(string.format([[
+    Config.options.vault_path = '%s'
+    Config.options.cache.validate_on_startup = true
+    TaskManager.scan_vault()
+  ]], vault_path))
+
+  local is_loaded = child.lua_get([[return TaskManager.is_loaded]])
+  eq(is_loaded, true)
+
+  helpers.cleanup_vault(child, vault_path)
+end
+
+T['loading_state_tracking']['scan_vault called multiple times maintains state'] = function()
+  local vault_path = helpers.create_test_vault(child)
+  helpers.create_test_task(child, vault_path, {
+    title = 'Multi-scan Task',
+    status = 'open',
+    tags = { 'task' },
+  }, 'Body')
+
+  child.lua(string.format([[
+    Config.options.vault_path = '%s'
+    -- First scan
+    TaskManager.scan_vault()
+    FIRST_LOADED = TaskManager.is_loaded
+
+    -- Second scan
+    TaskManager.scan_vault()
+    SECOND_LOADED = TaskManager.is_loaded
+  ]], vault_path))
+
+  local first_loaded = child.lua_get([[return FIRST_LOADED]])
+  local second_loaded = child.lua_get([[return SECOND_LOADED]])
+
+  eq(first_loaded, true)
+  eq(second_loaded, true)
+
+  helpers.cleanup_vault(child, vault_path)
+end
+
 return T

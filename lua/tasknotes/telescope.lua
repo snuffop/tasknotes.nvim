@@ -85,6 +85,11 @@ end
 function M.browse_tasks(opts)
   opts = opts or {}
 
+  -- Ensure tasks are loaded before browsing
+  if not task_manager.is_loaded then
+    task_manager.scan_vault()
+  end
+
   -- Get tasks (optionally filtered)
   local tasks = task_manager.get_tasks(opts.filter)
 

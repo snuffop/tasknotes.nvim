@@ -71,9 +71,7 @@ function M.setup(user_config)
   end
 
   -- Initial vault scan
-  vim.schedule(function()
-    task_manager.scan_vault()
-  end)
+  task_manager.scan_vault()
 
   -- Setup Telescope extension if available
   if opts.telescope.enabled then
