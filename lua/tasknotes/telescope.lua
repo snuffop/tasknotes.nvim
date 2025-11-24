@@ -28,7 +28,8 @@ local function make_display(opts)
   local displayer = entry_display.create({
     separator = " ",
     items = {
-      { width = 40 },
+      { width = 2 },  -- Dependency indicator
+      { width = 38 },
       { width = 12 },
       { width = 10 },
       { width = 12 },
@@ -55,6 +56,24 @@ local function make_display(opts)
     local due_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsNumber"
     local contexts_hl = should_dim and "TaskNotesCompletedTitle" or "TelescopeResultsSpecialComment"
 
+    -- Determine dependency indicator
+    local dep_indicator = " "
+    local dep_hl = "TelescopeResultsComment"
+
+    -- Check if blocked (with error handling)
+    local ok, is_blocked = pcall(task_manager.is_task_blocked, task)
+    if ok and is_blocked then
+      dep_indicator = "⛔"
+      dep_hl = "DiagnosticError"
+    else
+      -- Check if blocking other tasks (with error handling)
+      local ok2, blocked_tasks = pcall(task_manager.get_blocked_tasks, task)
+      if ok2 and blocked_tasks and #blocked_tasks > 0 then
+        dep_indicator = "🔒"
+        dep_hl = "DiagnosticWarn"
+      end
+    end
+
     -- Format due date
     local due_str = safe_string(task.due)
 
@@ -62,6 +81,7 @@ local function make_display(opts)
     local contexts_str = table.concat(task.contexts or {}, ", ")
 
     return displayer({
+      { dep_indicator, dep_hl },
       { safe_string(task.title), title_hl },
       { status_info.display, status_hl },
       { priority_info.display, priority_hl },
@@ -121,6 +141,23 @@ function M.browse_tasks(opts)
         map("i", "<C-d>", function()
           local selection = action_state.get_selected_entry()
           if selection then
+            -- Check if this task blocks other tasks (with error handling)
+            local ok, blocked_tasks = pcall(task_manager.get_blocked_tasks, selection.value)
+            if ok and blocked_tasks and #blocked_tasks > 0 then
+              local task_titles = {}
+              for _, t in ipairs(blocked_tasks) do
+                table.insert(task_titles, t.title)
+              end
+              vim.notify(
+                string.format(
+                  "Warning: This task blocks %d other task(s): %s",
+                  #blocked_tasks,
+                  table.concat(task_titles, ", ")
+                ),
+                vim.log.levels.WARN
+              )
+            end
+
             task_manager.update_task(selection.path, {
               status = "done",
               completedDate = os.date("!%Y-%m-%dT%H:%M:%SZ"),

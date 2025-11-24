@@ -25,5 +25,10 @@ command! TaskNotesByContext lua require('tasknotes').browse_tasks({context = vim
 " Obsidian integration
 command! -nargs=1 TaskNotesImportObsidian lua require('tasknotes').import_obsidian_settings(<f-args>)
 
+" Dependency commands
+command! TaskNotesShowDependencies lua require('tasknotes').show_dependencies()
+command! TaskNotesGotoBlockingTasks lua require('tasknotes').goto_blocking_tasks()
+command! TaskNotesGotoBlockedTasks lua require('tasknotes').goto_blocked_tasks()
+
 " Telescope extension commands (if available)
 command! -nargs=? TaskNotesTelescope lua require('telescope').extensions.tasknotes.tasks({filter = <q-args>})

@@ -36,6 +36,7 @@ local defaults = {
     recurrence_anchor = "recurrence_anchor",
     complete_instances = "complete_instances",
     skipped_instances = "skipped_instances",
+    blockedBy = "blockedBy",
   },
 
   -- Status definitions

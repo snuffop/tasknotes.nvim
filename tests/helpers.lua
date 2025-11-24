@@ -25,8 +25,9 @@ end
 -- @param vault_path: path to vault directory
 -- @param frontmatter: table of frontmatter fields
 -- @param body: optional markdown body content
+-- @param filename: optional custom filename (defaults to title-based)
 -- @return filepath of created file
-Helpers.create_test_task = function(child, vault_path, frontmatter, body)
+Helpers.create_test_task = function(child, vault_path, frontmatter, body, filename)
   local yaml_lines = { '---' }
 
   for k, v in pairs(frontmatter) do
@@ -54,7 +55,7 @@ Helpers.create_test_task = function(child, vault_path, frontmatter, body)
     table.insert(yaml_lines, body)
   end
 
-  local filename = frontmatter.title:gsub('%s+', '-'):lower() .. '.md'
+  filename = filename or (frontmatter.title:gsub('%s+', '-'):lower() .. '.md')
   local filepath = vault_path .. '/' .. filename
   local content = table.concat(yaml_lines, '\n')
 

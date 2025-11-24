@@ -245,6 +245,204 @@ function M.import_obsidian_settings(obsidian_vault_path)
   return nvim_config
 end
 
+-- Show dependencies for current task
+function M.show_dependencies()
+  local filepath = vim.api.nvim_buf_get_name(0)
+  local task = task_manager.get_task_by_path(filepath)
+
+  if not task then
+    vim.notify("Current buffer is not a TaskNote", vim.log.levels.WARN)
+    return
+  end
+
+  local blocking_tasks = task_manager.get_blocking_tasks(task)
+  local blocked_tasks = task_manager.get_blocked_tasks(task)
+
+  local lines = {}
+  table.insert(lines, "Dependencies for: " .. task.title)
+  table.insert(lines, "")
+
+  if #blocking_tasks > 0 then
+    table.insert(lines, "Blocked by:")
+    for _, t in ipairs(blocking_tasks) do
+      local status = config.get_status(t.status)
+      local status_str = status.is_completed and "[✓]" or "[ ]"
+      table.insert(lines, string.format("  %s %s (%s)", status_str, t.title, t.path))
+    end
+  else
+    table.insert(lines, "Not blocked by any tasks")
+  end
+
+  table.insert(lines, "")
+
+  if #blocked_tasks > 0 then
+    table.insert(lines, "Blocking:")
+    for _, t in ipairs(blocked_tasks) do
+      table.insert(lines, string.format("  - %s (%s)", t.title, t.path))
+    end
+  else
+    table.insert(lines, "Not blocking any tasks")
+  end
+
+  -- Create a new buffer to display dependencies
+  local bufnr = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+  vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
+  vim.api.nvim_buf_set_option(bufnr, "buftype", "nofile")
+  vim.api.nvim_buf_set_option(bufnr, "bufhidden", "wipe")
+
+  -- Open in a split
+  vim.cmd("split")
+  vim.api.nvim_win_set_buf(0, bufnr)
+  vim.api.nvim_buf_set_name(bufnr, "Task Dependencies")
+end
+
+-- Navigate to blocking tasks
+function M.goto_blocking_tasks()
+  local filepath = vim.api.nvim_buf_get_name(0)
+  local task = task_manager.get_task_by_path(filepath)
+
+  if not task then
+    vim.notify("Current buffer is not a TaskNote", vim.log.levels.WARN)
+    return
+  end
+
+  local blocking_tasks = task_manager.get_blocking_tasks(task)
+
+  if #blocking_tasks == 0 then
+    vim.notify("No blocking tasks", vim.log.levels.INFO)
+    return
+  end
+
+  if #blocking_tasks == 1 then
+    vim.cmd("edit " .. blocking_tasks[1].path)
+    return
+  end
+
+  -- Multiple blocking tasks - show picker
+  local has_telescope = pcall(require, "telescope")
+  if has_telescope then
+    local pickers = require("telescope.pickers")
+    local finders = require("telescope.finders")
+    local conf = require("telescope.config").values
+    local actions = require("telescope.actions")
+    local action_state = require("telescope.actions.state")
+
+    pickers.new({}, {
+      prompt_title = "Blocking Tasks",
+      finder = finders.new_table({
+        results = blocking_tasks,
+        entry_maker = function(t)
+          return {
+            value = t,
+            display = t.title,
+            ordinal = t.title,
+            path = t.path,
+          }
+        end,
+      }),
+      sorter = conf.generic_sorter({}),
+      attach_mappings = function(prompt_bufnr)
+        actions.select_default:replace(function()
+          actions.close(prompt_bufnr)
+          local selection = action_state.get_selected_entry()
+          if selection then
+            vim.cmd("edit " .. selection.path)
+          end
+        end)
+        return true
+      end,
+    }):find()
+  else
+    -- Fallback: show list via vim.ui.select
+    local task_labels = {}
+    for _, t in ipairs(blocking_tasks) do
+      table.insert(task_labels, t.title)
+    end
+
+    vim.ui.select(task_labels, {
+      prompt = "Select blocking task:",
+    }, function(choice, idx)
+      if idx then
+        vim.cmd("edit " .. blocking_tasks[idx].path)
+      end
+    end)
+  end
+end
+
+-- Navigate to blocked tasks
+function M.goto_blocked_tasks()
+  local filepath = vim.api.nvim_buf_get_name(0)
+  local task = task_manager.get_task_by_path(filepath)
+
+  if not task then
+    vim.notify("Current buffer is not a TaskNote", vim.log.levels.WARN)
+    return
+  end
+
+  local blocked_tasks = task_manager.get_blocked_tasks(task)
+
+  if #blocked_tasks == 0 then
+    vim.notify("No blocked tasks", vim.log.levels.INFO)
+    return
+  end
+
+  if #blocked_tasks == 1 then
+    vim.cmd("edit " .. blocked_tasks[1].path)
+    return
+  end
+
+  -- Multiple blocked tasks - show picker
+  local has_telescope = pcall(require, "telescope")
+  if has_telescope then
+    local pickers = require("telescope.pickers")
+    local finders = require("telescope.finders")
+    local conf = require("telescope.config").values
+    local actions = require("telescope.actions")
+    local action_state = require("telescope.actions.state")
+
+    pickers.new({}, {
+      prompt_title = "Blocked Tasks",
+      finder = finders.new_table({
+        results = blocked_tasks,
+        entry_maker = function(t)
+          return {
+            value = t,
+            display = t.title,
+            ordinal = t.title,
+            path = t.path,
+          }
+        end,
+      }),
+      sorter = conf.generic_sorter({}),
+      attach_mappings = function(prompt_bufnr)
+        actions.select_default:replace(function()
+          actions.close(prompt_bufnr)
+          local selection = action_state.get_selected_entry()
+          if selection then
+            vim.cmd("edit " .. selection.path)
+          end
+        end)
+        return true
+      end,
+    }):find()
+  else
+    -- Fallback: show list via vim.ui.select
+    local task_labels = {}
+    for _, t in ipairs(blocked_tasks) do
+      table.insert(task_labels, t.title)
+    end
+
+    vim.ui.select(task_labels, {
+      prompt = "Select blocked task:",
+    }, function(choice, idx)
+      if idx then
+        vim.cmd("edit " .. blocked_tasks[idx].path)
+      end
+    end)
+  end
+end
+
 -- Export public API
 M.task_manager = task_manager
 M.config = config

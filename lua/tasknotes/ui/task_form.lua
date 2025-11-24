@@ -36,6 +36,8 @@ local function create_form_fields(task)
     "",
     "Tags (comma-separated): " .. table.concat(task.tags or {}, ", "),
     "",
+    "Blocked By (comma-separated file paths): " .. table.concat(task.blockedBy or {}, ", "),
+    "",
     "Time Estimate (minutes): " .. (task.timeEstimate or ""),
     "",
     "",
@@ -72,6 +74,8 @@ local function parse_form_data(bufnr)
         data.projects = value ~= "" and vim.split(value, ",%s*") or {}
       elseif key:match("Tags") then
         data.tags = value ~= "" and vim.split(value, ",%s*") or {}
+      elseif key:match("Blocked By") then
+        data.blockedBy = value ~= "" and vim.split(value, ",%s*") or {}
       elseif key:match("Time Estimate") then
         data.timeEstimate = value ~= "" and tonumber(value) or nil
       end

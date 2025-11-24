@@ -73,6 +73,12 @@ function M.scan_vault(force_validate)
     for filepath, cached_entry in pairs(persistent_cache.tasks) do
       local task = cached_entry.task
       if task then
+        -- Normalize blockedBy field to handle vim.NIL from JSON deserialization
+        task.blockedBy = normalize_value(task.blockedBy, {})
+        if type(task.blockedBy) == "string" then
+          task.blockedBy = { task.blockedBy }
+        end
+
         table.insert(M.tasks, task)
         M.tasks_by_path[filepath] = task
       end
@@ -128,6 +134,12 @@ function M.scan_vault(force_validate)
       -- File hasn't changed, use cached task object
       local task = cached_entry.task
       if task then
+        -- Normalize blockedBy field to handle vim.NIL from JSON deserialization
+        task.blockedBy = normalize_value(task.blockedBy, {})
+        if type(task.blockedBy) == "string" then
+          task.blockedBy = { task.blockedBy }
+        end
+
         table.insert(M.tasks, task)
         M.tasks_by_path[filepath] = task
         files_from_cache = files_from_cache + 1
@@ -210,6 +222,7 @@ function M.create_task_object(filepath, frontmatter, body)
     completedDate = normalize_value(frontmatter[fm.completedDate], nil),
     dateCreated = normalize_value(frontmatter[fm.dateCreated], nil),
     dateModified = normalize_value(frontmatter[fm.dateModified], nil),
+    blockedBy = normalize_value(frontmatter[fm.blockedBy], {}),
     body = body or "",
   }
 
@@ -222,6 +235,9 @@ function M.create_task_object(filepath, frontmatter, body)
   end
   if type(task.tags) == "string" then
     task.tags = { task.tags }
+  end
+  if type(task.blockedBy) == "string" then
+    task.blockedBy = { task.blockedBy }
   end
 
   -- Calculate total tracked time
@@ -356,8 +372,20 @@ function M.create_task(task_data)
   frontmatter[fm.projects] = task_data.projects or {}
   frontmatter[fm.tags] = task_data.tags or { opts.task_tag }
   frontmatter[fm.timeEstimate] = task_data.timeEstimate
+  frontmatter[fm.blockedBy] = task_data.blockedBy or {}
   frontmatter[fm.dateCreated] = os.date("!%Y-%m-%dT%H:%M:%SZ")
   frontmatter[fm.dateModified] = frontmatter[fm.dateCreated]
+
+  -- Validate dependencies if provided
+  if task_data.blockedBy and #task_data.blockedBy > 0 then
+    -- Create temporary task object for validation
+    local temp_task = { path = filepath, blockedBy = task_data.blockedBy }
+    local valid, err = M.validate_dependencies(temp_task)
+    if not valid then
+      vim.notify("Invalid dependencies: " .. err, vim.log.levels.ERROR)
+      return nil
+    end
+  end
 
   -- Write file
   local success, err = parser.write_file(filepath, frontmatter, task_data.body or "")
@@ -385,6 +413,16 @@ function M.update_task(filepath, updates)
 
   local opts = config.get()
   local fm = opts.field_mapping
+
+  -- Validate dependencies if being updated
+  if updates.blockedBy then
+    local temp_task = { path = filepath, blockedBy = updates.blockedBy }
+    local valid, err = M.validate_dependencies(temp_task)
+    if not valid then
+      vim.notify("Invalid dependencies: " .. err, vim.log.levels.ERROR)
+      return false
+    end
+  end
 
   -- Update frontmatter fields
   for key, value in pairs(updates) do
@@ -622,6 +660,140 @@ function M.validate_cache_async()
       end
     end,
   })
+end
+
+-- Get tasks that block the given task
+-- Returns array of task objects
+function M.get_blocking_tasks(task)
+  -- Normalize blockedBy to handle vim.NIL from cache
+  local blockedBy = normalize_value(task.blockedBy, {})
+
+  if type(blockedBy) ~= "table" or #blockedBy == 0 then
+    return {}
+  end
+
+  local blocking_tasks = {}
+  for _, blocking_path in ipairs(blockedBy) do
+    -- blockedBy can contain file paths or task IDs
+    -- For now, assume they are file paths
+    local blocking_task = M.tasks_by_path[blocking_path]
+    if blocking_task then
+      table.insert(blocking_tasks, blocking_task)
+    else
+      -- Try to find by matching filename
+      for _, t in ipairs(M.tasks) do
+        -- Safely match patterns
+        local path_match = pcall(function()
+          return t.path:match(blocking_path .. "$") or t.path:match("/" .. blocking_path .. "$")
+        end)
+        if path_match then
+          table.insert(blocking_tasks, t)
+          break
+        end
+      end
+    end
+  end
+
+  return blocking_tasks
+end
+
+-- Get tasks that are blocked by the given task
+-- Returns array of task objects
+function M.get_blocked_tasks(task)
+  local blocked_tasks = {}
+
+  for _, t in ipairs(M.tasks) do
+    -- Normalize blockedBy to handle vim.NIL from cache
+    local blockedBy = normalize_value(t.blockedBy, {})
+
+    if type(blockedBy) == "table" and #blockedBy > 0 then
+      for _, blocking_path in ipairs(blockedBy) do
+        -- Check if this task's path matches any of the blockedBy entries
+        -- Safely match patterns
+        local matches = false
+        pcall(function()
+          matches = blocking_path == task.path or
+                    task.path:match(blocking_path .. "$") or
+                    task.path:match("/" .. blocking_path .. "$")
+        end)
+
+        if matches then
+          table.insert(blocked_tasks, t)
+          break
+        end
+      end
+    end
+  end
+
+  return blocked_tasks
+end
+
+-- Check if a task is blocked (any blocking tasks are not completed)
+function M.is_task_blocked(task)
+  local blocking_tasks = M.get_blocking_tasks(task)
+
+  for _, blocking_task in ipairs(blocking_tasks) do
+    local status_def = config.get_status(blocking_task.status)
+    if not status_def.is_completed then
+      return true
+    end
+  end
+
+  return false
+end
+
+-- Validate dependencies for circular references
+-- Returns true if valid, false + error message if circular dependency detected
+function M.validate_dependencies(task, new_dependencies)
+  local dependencies = new_dependencies or task.blockedBy or {}
+
+  -- Build dependency graph starting from this task
+  local visited = {}
+  local rec_stack = {}
+
+  local function has_cycle(current_task_path, deps)
+    if rec_stack[current_task_path] then
+      return true, "Circular dependency detected"
+    end
+
+    if visited[current_task_path] then
+      return false
+    end
+
+    visited[current_task_path] = true
+    rec_stack[current_task_path] = true
+
+    -- Check all dependencies of current task
+    for _, dep_path in ipairs(deps or {}) do
+      local dep_task = M.tasks_by_path[dep_path]
+      if not dep_task then
+        -- Try to find by filename match
+        for _, t in ipairs(M.tasks) do
+          if t.path:match(dep_path .. "$") or t.path:match("/" .. dep_path .. "$") then
+            dep_task = t
+            break
+          end
+        end
+      end
+
+      if dep_task then
+        local has_circular, err = has_cycle(dep_task.path, dep_task.blockedBy or {})
+        if has_circular then
+          return false, err
+        end
+      end
+    end
+
+    rec_stack[current_task_path] = nil
+    return false
+  end
+
+  local has_circular, err = has_cycle(task.path, dependencies)
+  if has_circular then
+    return false, err
+  end
+
+  return true
 end
 
 return M
