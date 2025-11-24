@@ -89,6 +89,18 @@ function M.scan_vault(force_validate)
       vim.log.levels.INFO
     )
 
+    -- Recalculate urgency for all tasks with dependency factors
+    -- Now that all tasks are loaded, dependency checks will work correctly
+    if opts.urgency and opts.urgency.enabled then
+      local urgency = require("tasknotes.urgency")
+      for _, task in ipairs(M.tasks) do
+        -- Recalculate with dependencies (skip_dependencies = false)
+        task.urgency = urgency.calculate_urgency(task, opts, nil, false)
+        -- Update in tasks_by_path as well
+        M.tasks_by_path[task.path] = task
+      end
+    end
+
     -- Schedule background validation if needed
     if cache_module.needs_validation(persistent_cache, opts.cache.validation_interval) then
       vim.defer_fn(function()
@@ -198,6 +210,18 @@ function M.scan_vault(force_validate)
     vim.notify(string.format("Found %d tasks", #M.tasks), vim.log.levels.INFO)
   end
 
+  -- Recalculate urgency for all tasks with dependency factors
+  -- Now that all tasks are loaded, dependency checks will work correctly
+  if opts.urgency and opts.urgency.enabled then
+    local urgency = require("tasknotes.urgency")
+    for _, task in ipairs(M.tasks) do
+      -- Recalculate with dependencies (skip_dependencies = false)
+      task.urgency = urgency.calculate_urgency(task, opts, nil, false)
+      -- Update in tasks_by_path as well
+      M.tasks_by_path[task.path] = task
+    end
+  end
+
   M.is_loaded = true
 end
 
@@ -243,11 +267,13 @@ function M.create_task_object(filepath, frontmatter, body)
   -- Calculate total tracked time
   task.totalTrackedTime = M.calculate_total_time(task.timeEntries)
 
-  -- Calculate urgency score
+  -- Calculate urgency score (skip dependencies during initial load)
   local urgency_config = config.get()
   if urgency_config.urgency and urgency_config.urgency.enabled then
     local urgency = require("tasknotes.urgency")
-    task.urgency = urgency.calculate_urgency(task, urgency_config)
+    -- Skip dependency calculations during task creation to avoid circular dependency
+    -- Urgency will be recalculated with dependencies after all tasks are loaded
+    task.urgency = urgency.calculate_urgency(task, urgency_config, nil, true)
   else
     task.urgency = 0
   end

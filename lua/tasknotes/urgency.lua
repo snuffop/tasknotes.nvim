@@ -187,9 +187,11 @@ end
 -- @param task table task object
 -- @param config table configuration (from config.get())
 -- @param now number optional current timestamp (defaults to os.time())
+-- @param skip_dependencies boolean optional flag to skip dependency calculations (for initial load)
 -- @return number urgency score
-function M.calculate_urgency(task, config, now)
+function M.calculate_urgency(task, config, now, skip_dependencies)
   now = now or os.time()
+  skip_dependencies = skip_dependencies or false
   local score = 0.0
   local c = config.urgency.coefficients
 
@@ -213,9 +215,11 @@ function M.calculate_urgency(task, config, now)
     score = score + c.in_progress
   end
 
-  -- Dependency factors
-  score = score + calculate_blocking_urgency(task, config)
-  score = score + calculate_blocked_penalty(task, config)
+  -- Dependency factors (skip during initial load to avoid circular dependency)
+  if not skip_dependencies then
+    score = score + calculate_blocking_urgency(task, config)
+    score = score + calculate_blocked_penalty(task, config)
+  end
 
   -- FUTURE FACTORS (TODOs)
 
