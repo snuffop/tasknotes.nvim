@@ -89,18 +89,6 @@ function M.scan_vault(force_validate)
       vim.log.levels.INFO
     )
 
-    -- Recalculate urgency for all tasks with dependency factors
-    -- Now that all tasks are loaded, dependency checks will work correctly
-    if opts.urgency and opts.urgency.enabled then
-      local urgency = require("tasknotes.urgency")
-      for _, task in ipairs(M.tasks) do
-        -- Recalculate with dependencies (skip_dependencies = false)
-        task.urgency = urgency.calculate_urgency(task, opts, nil, false)
-        -- Update in tasks_by_path as well
-        M.tasks_by_path[task.path] = task
-      end
-    end
-
     -- Schedule background validation if needed
     if cache_module.needs_validation(persistent_cache, opts.cache.validation_interval) then
       vim.defer_fn(function()
@@ -693,6 +681,18 @@ function M.validate_cache_async()
           cache_module.save(cache_path, persistent_cache)
           if updates_needed then
             vim.notify("Task cache updated in background", vim.log.levels.INFO)
+          end
+        end
+
+        -- Recalculate urgency for all tasks with dependency factors
+        -- This runs in the background after cache validation is complete
+        if opts.urgency and opts.urgency.enabled then
+          local urgency = require("tasknotes.urgency")
+          for _, task in ipairs(M.tasks) do
+            -- Recalculate with dependencies (skip_dependencies = false)
+            task.urgency = urgency.calculate_urgency(task, opts, nil, false)
+            -- Update in tasks_by_path as well
+            M.tasks_by_path[task.path] = task
           end
         end
       end)
