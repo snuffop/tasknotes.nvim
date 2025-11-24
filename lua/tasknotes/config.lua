@@ -64,10 +64,10 @@ local defaults = {
     time_tracker_height = 15,
   },
 
-  -- Telescope configuration
-  telescope = {
+  -- Picker configuration
+  picker = {
     enabled = true,
-    theme = "dropdown",
+    backend = "snacks",  -- "snacks" or "telescope" (if telescope support is added back)
     dim_completed = true, -- Grey out completed tasks in the picker
     hide_completed = true, -- Filter out completed tasks from default view
   },

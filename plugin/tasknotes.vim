@@ -29,6 +29,3 @@ command! -nargs=1 TaskNotesImportObsidian lua require('tasknotes').import_obsidi
 command! TaskNotesShowDependencies lua require('tasknotes').show_dependencies()
 command! TaskNotesGotoBlockingTasks lua require('tasknotes').goto_blocking_tasks()
 command! TaskNotesGotoBlockedTasks lua require('tasknotes').goto_blocked_tasks()
-
-" Telescope extension commands (if available)
-command! -nargs=? TaskNotesTelescope lua require('telescope').extensions.tasknotes.tasks({filter = <q-args>})

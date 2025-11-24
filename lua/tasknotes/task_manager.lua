@@ -327,7 +327,7 @@ end
 -- Get all tasks (optionally filtered)
 function M.get_tasks(filter)
   local opts = config.get()
-  local hide_completed = opts.telescope and opts.telescope.hide_completed
+  local hide_completed = opts.picker and opts.picker.hide_completed
 
   local filtered = {}
   for _, task in ipairs(M.tasks) do

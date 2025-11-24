@@ -13,10 +13,10 @@ local function check_dependencies()
     table.insert(warnings, "nui.nvim not found - UI features will not work")
   end
 
-  -- Check for telescope (optional)
-  local has_telescope = pcall(require, "telescope")
-  if not has_telescope then
-    table.insert(warnings, "telescope.nvim not found - Telescope integration disabled")
+  -- Check for snacks (required for picker)
+  local has_snacks = pcall(require, "snacks")
+  if not has_snacks then
+    table.insert(warnings, "snacks.nvim not found - Task picker will not work")
   end
 
   -- Check for plenary (optional but recommended)
@@ -73,15 +73,6 @@ function M.setup(user_config)
   -- Initial vault scan
   task_manager.scan_vault()
 
-  -- Setup Telescope extension if available
-  if opts.telescope.enabled then
-    local has_telescope = pcall(require, "telescope")
-    if has_telescope then
-      local telescope_integration = require("tasknotes.telescope")
-      telescope_integration.setup()
-    end
-  end
-
   -- Setup keymaps if configured
   if opts.keymaps.browse then
     vim.keymap.set("n", opts.keymaps.browse, function()
@@ -128,12 +119,12 @@ end
 
 -- Browse tasks
 function M.browse_tasks(filter)
-  local has_telescope = pcall(require, "telescope")
-  if has_telescope then
-    local telescope_integration = require("tasknotes.telescope")
-    telescope_integration.browse_tasks({ filter = filter })
+  local has_snacks = pcall(require, "snacks")
+  if has_snacks then
+    local picker = require("tasknotes.snacks_picker")
+    picker.browse_tasks({ filter = filter })
   else
-    vim.notify("Telescope not available", vim.log.levels.ERROR)
+    vim.notify("Snacks.nvim not available", vim.log.levels.ERROR)
   end
 end
 
@@ -319,55 +310,19 @@ function M.goto_blocking_tasks()
     return
   end
 
-  -- Multiple blocking tasks - show picker
-  local has_telescope = pcall(require, "telescope")
-  if has_telescope then
-    local pickers = require("telescope.pickers")
-    local finders = require("telescope.finders")
-    local conf = require("telescope.config").values
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-
-    pickers.new({}, {
-      prompt_title = "Blocking Tasks",
-      finder = finders.new_table({
-        results = blocking_tasks,
-        entry_maker = function(t)
-          return {
-            value = t,
-            display = t.title,
-            ordinal = t.title,
-            path = t.path,
-          }
-        end,
-      }),
-      sorter = conf.generic_sorter({}),
-      attach_mappings = function(prompt_bufnr)
-        actions.select_default:replace(function()
-          actions.close(prompt_bufnr)
-          local selection = action_state.get_selected_entry()
-          if selection then
-            vim.cmd("edit " .. selection.path)
-          end
-        end)
-        return true
-      end,
-    }):find()
-  else
-    -- Fallback: show list via vim.ui.select
-    local task_labels = {}
-    for _, t in ipairs(blocking_tasks) do
-      table.insert(task_labels, t.title)
-    end
-
-    vim.ui.select(task_labels, {
-      prompt = "Select blocking task:",
-    }, function(choice, idx)
-      if idx then
-        vim.cmd("edit " .. blocking_tasks[idx].path)
-      end
-    end)
+  -- Multiple blocking tasks - show selector
+  local task_labels = {}
+  for _, t in ipairs(blocking_tasks) do
+    table.insert(task_labels, t.title)
   end
+
+  vim.ui.select(task_labels, {
+    prompt = "Select blocking task:",
+  }, function(choice, idx)
+    if idx then
+      vim.cmd("edit " .. blocking_tasks[idx].path)
+    end
+  end)
 end
 
 -- Navigate to blocked tasks
@@ -392,55 +347,19 @@ function M.goto_blocked_tasks()
     return
   end
 
-  -- Multiple blocked tasks - show picker
-  local has_telescope = pcall(require, "telescope")
-  if has_telescope then
-    local pickers = require("telescope.pickers")
-    local finders = require("telescope.finders")
-    local conf = require("telescope.config").values
-    local actions = require("telescope.actions")
-    local action_state = require("telescope.actions.state")
-
-    pickers.new({}, {
-      prompt_title = "Blocked Tasks",
-      finder = finders.new_table({
-        results = blocked_tasks,
-        entry_maker = function(t)
-          return {
-            value = t,
-            display = t.title,
-            ordinal = t.title,
-            path = t.path,
-          }
-        end,
-      }),
-      sorter = conf.generic_sorter({}),
-      attach_mappings = function(prompt_bufnr)
-        actions.select_default:replace(function()
-          actions.close(prompt_bufnr)
-          local selection = action_state.get_selected_entry()
-          if selection then
-            vim.cmd("edit " .. selection.path)
-          end
-        end)
-        return true
-      end,
-    }):find()
-  else
-    -- Fallback: show list via vim.ui.select
-    local task_labels = {}
-    for _, t in ipairs(blocked_tasks) do
-      table.insert(task_labels, t.title)
-    end
-
-    vim.ui.select(task_labels, {
-      prompt = "Select blocked task:",
-    }, function(choice, idx)
-      if idx then
-        vim.cmd("edit " .. blocked_tasks[idx].path)
-      end
-    end)
+  -- Multiple blocked tasks - show selector
+  local task_labels = {}
+  for _, t in ipairs(blocked_tasks) do
+    table.insert(task_labels, t.title)
   end
+
+  vim.ui.select(task_labels, {
+    prompt = "Select blocked task:",
+  }, function(choice, idx)
+    if idx then
+      vim.cmd("edit " .. blocked_tasks[idx].path)
+    end
+  end)
 end
 
 -- Export public API
