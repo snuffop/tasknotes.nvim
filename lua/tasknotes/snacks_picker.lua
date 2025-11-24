@@ -110,15 +110,35 @@ function M.browse_tasks(opts)
   snacks.picker.pick({
     prompt = "TaskNotes",
     items = items,
+
+    -- File previewer configuration
+    previewers = {
+      file = {
+        ft = nil,  -- auto-detect filetype
+        max_size = 1024 * 1024,  -- 1MB limit
+      }
+    },
+
+    -- Layout with preview support
+    layout = {
+      preset = "ivy",
+      preview = "main",
+    },
+
     -- Format with proper highlighting
     format = function(item, picker)
       local ret = {}
 
-      -- Use TaskNotesCompletedTitle (defined in init.lua) for completed tasks
-      local hl_group = item.is_completed and "TaskNotesCompletedTitle" or "Normal"
-
-      -- Single line with appropriate highlighting
-      ret[#ret + 1] = { item.text, hl_group }
+      if item.is_completed then
+        local hl_group = "TaskNotesCompletedTitle"
+        -- Fallback if highlight group doesn't exist
+        if vim.fn.hlexists(hl_group) == 0 then
+          hl_group = "SnacksPickerComment"  -- Snacks' dimmed style
+        end
+        ret[#ret + 1] = { item.text, hl_group }
+      else
+        ret[#ret + 1] = { item.text, "SnacksPickerNormal" }
+      end
 
       return ret
     end,
