@@ -110,7 +110,18 @@ function M.browse_tasks(opts)
   snacks.picker.pick({
     prompt = "TaskNotes",
     items = items,
-    format = "text",  -- Use built-in text formatter
+    -- Format with proper highlighting
+    format = function(item, picker)
+      local ret = {}
+
+      -- Use TaskNotesCompletedTitle (defined in init.lua) for completed tasks
+      local hl_group = item.is_completed and "TaskNotesCompletedTitle" or "Normal"
+
+      -- Single line with appropriate highlighting
+      ret[#ret + 1] = { item.text, hl_group }
+
+      return ret
+    end,
 
     -- Custom sort: urgency descending (Snacks handles fuzzy matching automatically)
     sort = function(a, b)

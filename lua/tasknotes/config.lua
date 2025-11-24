@@ -69,7 +69,7 @@ local defaults = {
     enabled = true,
     backend = "snacks",  -- "snacks" or "telescope" (if telescope support is added back)
     dim_completed = true, -- Grey out completed tasks in the picker
-    hide_completed = true, -- Filter out completed tasks from default view
+    hide_completed = false, -- Show completed tasks with dimming (set to true to filter out)
   },
 
   -- Time tracking
