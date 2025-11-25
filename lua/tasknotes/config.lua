@@ -98,15 +98,15 @@ local defaults = {
       -- CORE FACTORS (implemented)
       due_proximity = 12.0,      -- Weight for due date urgency (scaled 0-1)
       priority_high = 6.0,       -- High priority tasks
-      priority_normal = 3.0,     -- Normal priority tasks
+      priority_normal = 3.9,     -- Normal priority tasks (Taskwarrior default)
       priority_low = 1.8,        -- Low priority tasks
       in_progress = 4.0,         -- Task already started
-      blocking_count = 5.0,      -- Per task blocked by this one
+      blocking_count = 8.0,      -- Per task blocked by this one (Taskwarrior default)
       is_blocked = -5.0,         -- Task is blocked by incomplete dependencies
+      age = 2.0,                 -- Weight for task age (scaled 0-1)
 
       -- TODO: Future factors (not yet implemented)
       -- scheduled_proximity = 2.5,  -- Weight for scheduled date urgency (scaled 0-1)
-      -- age = 2.0,                  -- Weight for task age (scaled 0-1)
       -- tag_count = 1.0,            -- Scaled by tag count (0.8/0.9/1.0 for 1/2/3+)
       -- project_count = 1.0,        -- Scaled by project count (0.8/0.9/1.0)
       -- context_count = 0.5,        -- Has context assignment

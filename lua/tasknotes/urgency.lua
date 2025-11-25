@@ -80,7 +80,6 @@ local function calculate_scheduled_urgency(scheduled_date, config, now)
   return 0.0
 end
 
--- TODO: Implement age-based urgency
 -- Calculate urgency component for task age
 -- Older tasks that haven't been completed should get more urgent
 -- @param created_date string ISO date
@@ -88,10 +87,22 @@ end
 -- @param now number current timestamp
 -- @return number urgency component (0.0-1.0)
 local function calculate_age_urgency(created_date, config, now)
-  -- PLACEHOLDER: To be implemented
-  -- Should scale from 0.0 (new task) to 1.0 (old task)
-  -- Based on config.urgency.date_scaling.age_max_days
-  return 0.0
+  if not created_date then
+    return 0.0
+  end
+
+  local created_timestamp = parse_iso_date(created_date)
+  if not created_timestamp then
+    return 0.0
+  end
+
+  -- Calculate days since creation
+  local age_seconds = now - created_timestamp
+  local age_days = age_seconds / (24 * 60 * 60)
+
+  -- Scale from 0.0 (new) to 1.0 (max age)
+  local max_days = config.urgency.date_scaling.age_max_days
+  return math.min(1.0, age_days / max_days)
 end
 
 -- Calculate priority urgency component
@@ -221,15 +232,15 @@ function M.calculate_urgency(task, config, now, skip_dependencies)
     score = score + calculate_blocked_penalty(task, config)
   end
 
+  -- Age-based urgency
+  local age_component = calculate_age_urgency(task.dateCreated, config, now)
+  score = score + (age_component * c.age)
+
   -- FUTURE FACTORS (TODOs)
 
   -- TODO: Uncomment when implemented
   -- local sched_component = calculate_scheduled_urgency(task.scheduled, config, now)
   -- score = score + (sched_component * c.scheduled_proximity)
-
-  -- TODO: Uncomment when implemented
-  -- local age_component = calculate_age_urgency(task.dateCreated, config, now)
-  -- score = score + (age_component * c.age)
 
   -- TODO: Uncomment when implemented
   -- score = score + calculate_tag_urgency(task.tags, config)

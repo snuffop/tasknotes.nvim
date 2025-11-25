@@ -68,8 +68,9 @@ T['calculate_urgency']['calculates urgency for normal priority task'] = function
   child.lua([[TaskManager.scan_vault()]])
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
 
-  -- Normal priority should give 3.0 urgency
-  eq(task.urgency, 3.0)
+  -- Normal priority should give 3.9 urgency (Taskwarrior default)
+  -- Note: May have tiny age component for newly created tasks, so check approximately
+  eq(task.urgency >= 3.9 and task.urgency < 4.0, true)
 
   helpers.cleanup_vault(child, vault_path)
 end
@@ -85,8 +86,9 @@ T['calculate_urgency']['adds urgency for in-progress status'] = function()
   child.lua([[TaskManager.scan_vault()]])
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
 
-  -- Normal priority (3.0) + in-progress (4.0) = 7.0
-  eq(task.urgency, 7.0)
+  -- Normal priority (3.9) + in-progress (4.0) = 7.9
+  -- Note: May have tiny age component for newly created tasks, so check approximately
+  eq(task.urgency >= 7.9 and task.urgency < 8.0, true)
 
   helpers.cleanup_vault(child, vault_path)
 end
@@ -169,8 +171,9 @@ T['calculate_urgency']['increases urgency for tasks blocking others'] = function
   child.lua([[TaskManager.scan_vault()]])
   local blocking_task = child.lua_get([[TaskManager.get_task_by_path(...)]], { blocking_path })
 
-  -- Normal priority (3.0) + blocks 2 tasks (2 * 5.0) = 13.0
-  eq(blocking_task.urgency, 13.0)
+  -- Normal priority (3.9) + blocks 2 tasks (2 * 8.0) = 19.9 (Taskwarrior defaults)
+  -- Note: May have tiny age component for newly created tasks, so check approximately
+  eq(blocking_task.urgency >= 19.9 and blocking_task.urgency < 20.0, true)
 
   helpers.cleanup_vault(child, vault_path)
 end
