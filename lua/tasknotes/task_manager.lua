@@ -329,6 +329,11 @@ function M.get_tasks(filter)
       end
     end
 
+    -- Filter out archived tasks
+    if task.archived == true then
+      matches = false
+    end
+
     -- Apply additional filters if provided
     if filter then
       if filter.status and task.status ~= filter.status then

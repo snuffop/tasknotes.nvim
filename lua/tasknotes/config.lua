@@ -37,6 +37,7 @@ local defaults = {
     complete_instances = "complete_instances",
     skipped_instances = "skipped_instances",
     blockedBy = "blockedBy",
+    archived = "archived",
   },
 
   -- Status definitions
