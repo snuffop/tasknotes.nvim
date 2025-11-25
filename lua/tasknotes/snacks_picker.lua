@@ -111,18 +111,9 @@ function M.browse_tasks(opts)
     prompt = "TaskNotes",
     items = items,
 
-    -- File previewer configuration
-    previewers = {
-      file = {
-        ft = nil,  -- auto-detect filetype
-        max_size = 1024 * 1024,  -- 1MB limit
-      }
-    },
-
-    -- Layout with preview support
+    -- Layout with preview support (telescope-style)
     layout = {
-      preset = "ivy",
-      preview = "main",
+      preset = "telescope",
     },
 
     -- Format with proper highlighting
@@ -153,13 +144,10 @@ function M.browse_tasks(opts)
       return (a.task.title or "") < (b.task.title or "")
     end,
 
-    -- Preview configuration
-    preview = function(item)
-      if item.file then
-        return {
-          file = item.file,
-          type = "file",
-        }
+    -- Preview configuration - use built-in file previewer
+    preview = function(ctx)
+      if ctx.item.file then
+        return snacks.picker.preview.file(ctx)
       end
     end,
 
