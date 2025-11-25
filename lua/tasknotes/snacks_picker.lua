@@ -276,14 +276,19 @@ end
 
 -- Browse by view
 function M.browse_by_view(view_id)
+  vim.notify("DEBUG: browse_by_view called with: " .. view_id, vim.log.levels.INFO)
+
   local opts = config.get()
   local views_dir = vim.fn.expand(opts.vault_path) .. "/TaskNotes/Views"
+  vim.notify("DEBUG: views_dir = " .. views_dir, vim.log.levels.INFO)
 
   local view, err = bases_parser.get_view(view_id, views_dir)
   if not view then
     vim.notify("View not found: " .. view_id .. (err and (" - " .. err) or ""), vim.log.levels.ERROR)
     return
   end
+
+  vim.notify("DEBUG: View loaded: " .. view.name, vim.log.levels.INFO)
 
   -- Combine base filters and view-specific filters
   local combined_filters = nil
@@ -300,6 +305,7 @@ function M.browse_by_view(view_id)
     combined_filters = view.view_filters
   end
 
+  vim.notify("DEBUG: Calling browse_tasks...", vim.log.levels.INFO)
   M.browse_tasks({
     filter = combined_filters and { bases_filters = combined_filters } or nil,
     view_name = view.name,
@@ -348,9 +354,24 @@ function M.show_view_selector()
       return nil
     end,
     actions = {
-      confirm = function(item)
-        if item and item.view_id then
-          M.browse_by_view(item.view_id)
+      confirm = function(picker)
+        -- Use picker:selected() to get the selected items (Snacks picker API)
+        local items = picker:selected({ fallback = true })
+        vim.notify("DEBUG: Selected items count: " .. #items, vim.log.levels.INFO)
+
+        if #items > 0 then
+          local item = items[1]
+          vim.notify("DEBUG: First item: " .. vim.inspect({ view_id = item.view_id, text = item.text }), vim.log.levels.INFO)
+
+          if item.view_id then
+            vim.notify("DEBUG: Calling browse_by_view with: " .. item.view_id, vim.log.levels.INFO)
+            picker:close()
+            M.browse_by_view(item.view_id)
+          else
+            vim.notify("DEBUG: No view_id in selected item!", vim.log.levels.WARN)
+          end
+        else
+          vim.notify("DEBUG: No items selected!", vim.log.levels.WARN)
         end
       end,
     },
