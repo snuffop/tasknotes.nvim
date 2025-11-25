@@ -160,8 +160,8 @@ function M.browse_tasks(opts)
 
     -- Actions
     actions = {
-      -- Default action: open file
-      select = function(item)
+      -- Default action: open file (Enter key)
+      confirm = function(item)
         if item and item.file then
           vim.cmd("edit " .. item.file)
         end
@@ -313,8 +313,9 @@ function M.show_view_selector()
     format = function(item)
       return { { item.text, "SnacksPickerNormal" } }
     end,
+    preview = false, -- Disable preview for non-file items
     actions = {
-      select = function(item)
+      confirm = function(item)
         if item and item.view_name then
           M.browse_by_view(item.view_name)
         end
