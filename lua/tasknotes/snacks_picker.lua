@@ -343,7 +343,10 @@ function M.show_view_selector()
     format = function(item)
       return { { item.text, "SnacksPickerNormal" } }
     end,
-    preview = false, -- Disable preview for non-file items
+    preview = function(ctx)
+      -- No preview for view selector items (they don't have files)
+      return nil
+    end,
     actions = {
       confirm = function(item)
         if item and item.view_id then
