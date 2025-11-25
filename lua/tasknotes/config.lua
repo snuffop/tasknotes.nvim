@@ -82,7 +82,8 @@ local defaults = {
   -- Cache configuration
   cache = {
     enabled = true,
-    filename = ".tasknotes_cache.json", -- Cache file name in vault directory
+    cache_dir = vim.fn.stdpath("state") .. "/tasknotes", -- Cache directory (XDG state)
+    filename = "cache.json", -- Cache file name
     validate_on_startup = false, -- Skip validation on startup for faster loading
     background_validation_delay = 500, -- ms to wait before background validation
     validation_interval = 300, -- seconds between validations (5 minutes)

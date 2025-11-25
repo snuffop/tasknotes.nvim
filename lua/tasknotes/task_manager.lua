@@ -17,6 +17,19 @@ local function normalize_value(value, default)
   return value
 end
 
+-- Get cache file path and ensure directory exists
+local function get_cache_path()
+  local opts = config.get()
+  local cache_dir = vim.fn.expand(opts.cache.cache_dir)
+
+  -- Ensure cache directory exists
+  if vim.fn.isdirectory(cache_dir) == 0 then
+    vim.fn.mkdir(cache_dir, "p")
+  end
+
+  return cache_dir .. "/" .. opts.cache.filename
+end
+
 -- Check if a file is a task file based on identification method
 local function is_task_file(frontmatter)
   local opts = config.get()
@@ -60,7 +73,7 @@ function M.scan_vault(force_validate)
   M.tasks_by_path = {}
 
   -- Try to load cache if enabled
-  local cache_path = vault_path .. "/" .. opts.cache.filename
+  local cache_path = get_cache_path()
   local persistent_cache = nil
 
   if opts.cache.enabled then
@@ -81,6 +94,15 @@ function M.scan_vault(force_validate)
 
         table.insert(M.tasks, task)
         M.tasks_by_path[filepath] = task
+      end
+    end
+
+    -- Recalculate urgency for all cached tasks with current coefficients
+    if opts.urgency and opts.urgency.enabled then
+      local urgency = require("tasknotes.urgency")
+      for _, task in ipairs(M.tasks) do
+        task.urgency = urgency.calculate_urgency(task, opts, nil, false)
+        M.tasks_by_path[task.path] = task
       end
     end
 
@@ -529,7 +551,7 @@ local function update_cache_file(filepath, task)
   end
 
   local vault_path = opts.vault_path
-  local cache_path = vault_path .. "/" .. opts.cache.filename
+  local cache_path = get_cache_path()
 
   -- Load existing cache
   local persistent_cache = cache_module.load(cache_path)
@@ -607,7 +629,7 @@ function M.validate_cache_async()
 
       -- Process the file list in the background
       vim.schedule(function()
-        local cache_path = vault_path .. "/" .. opts.cache.filename
+        local cache_path = get_cache_path()
         local persistent_cache = cache_module.load(cache_path)
 
         if not persistent_cache then
