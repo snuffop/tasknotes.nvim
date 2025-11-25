@@ -30,8 +30,6 @@ command! TaskNotesShowDependencies lua require('tasknotes').show_dependencies()
 command! TaskNotesGotoBlockingTasks lua require('tasknotes').goto_blocking_tasks()
 command! TaskNotesGotoBlockedTasks lua require('tasknotes').goto_blocked_tasks()
 
-" View commands
+" View commands (read-only - views loaded from TaskNotes/Views/*.base files)
 command! -nargs=? TaskNotesView lua require('tasknotes.commands').view_command(<f-args>)
-command! -nargs=+ TaskNotesSaveView lua require('tasknotes.commands').save_view_command(<f-args>)
-command! -nargs=1 TaskNotesDeleteView lua require('tasknotes').delete_view(<f-args>)
 command! TaskNotesListViews lua require('tasknotes').list_views()

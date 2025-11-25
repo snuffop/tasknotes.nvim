@@ -6,7 +6,8 @@ A Neovim plugin for managing [TaskNotes](https://github.com/joshklein/obsidian-t
 
 ## Features
 
-- **Views System**: Motion-inspired views (Inbox, Today, Overdue, etc.) with support for custom saved views
+- **Obsidian Bases Integration**: Full support for Obsidian Bases views with complex filtering, date functions, and logical operators
+- **Powerful Views**: Load views from `.base` files with support for Today, Overdue, This Week, Not Blocked, and custom filters
 - **Browse & Search Tasks**: Snacks picker integration for fast task browsing with filtering by status, priority, context, and project
 - **Create & Edit Tasks**: NUI-based forms for creating new tasks and editing existing ones
 - **Time Tracking**: Built-in time tracker with start/stop timers and time entry management
@@ -186,23 +187,21 @@ The following settings are imported from Obsidian:
 
 ### Commands
 
-| Command                            | Description                                |
-| ---------------------------------- | ------------------------------------------ |
-| `:TaskNotesBrowse`                 | Open Snacks picker to browse all tasks     |
-| `:TaskNotesNew`                    | Create a new task with form                |
-| `:TaskNotesEdit`                   | Edit current task metadata                 |
-| `:TaskNotesRescan`                 | Rescan vault directory for tasks           |
-| `:TaskNotesView [name]`            | Open view by name (or show selector)       |
-| `:TaskNotesSaveView <name> [desc]` | Save custom view with name and description |
-| `:TaskNotesDeleteView <name>`      | Delete a saved custom view                 |
-| `:TaskNotesListViews`              | Show view selector picker                  |
-| `:TaskNotesTimerToggle`            | Start/stop timer for current task          |
-| `:TaskNotesTimerStatus`            | Show active timer status                   |
-| `:TaskNotesTimeEntries`            | View time entries for current task         |
-| `:TaskNotesByStatus`               | Browse tasks filtered by status            |
-| `:TaskNotesByPriority`             | Browse tasks filtered by priority          |
-| `:TaskNotesByContext`              | Browse tasks filtered by context           |
-| `:TaskNotesImportObsidian <path>`  | Import settings from Obsidian vault        |
+| Command                           | Description                                   |
+| --------------------------------- | --------------------------------------------- |
+| `:TaskNotesBrowse`                | Open Snacks picker to browse all tasks        |
+| `:TaskNotesNew`                   | Create a new task with form                   |
+| `:TaskNotesEdit`                  | Edit current task metadata                    |
+| `:TaskNotesRescan`                | Rescan vault directory for tasks              |
+| `:TaskNotesView [id]`             | Open view by ID (e.g., `tasks-default:Today`) |
+| `:TaskNotesListViews`             | Show view selector picker                     |
+| `:TaskNotesTimerToggle`           | Start/stop timer for current task             |
+| `:TaskNotesTimerStatus`           | Show active timer status                      |
+| `:TaskNotesTimeEntries`           | View time entries for current task            |
+| `:TaskNotesByStatus`              | Browse tasks filtered by status               |
+| `:TaskNotesByPriority`            | Browse tasks filtered by priority             |
+| `:TaskNotesByContext`             | Browse tasks filtered by context              |
+| `:TaskNotesImportObsidian <path>` | Import settings from Obsidian vault           |
 
 ### Default Keymaps
 
@@ -229,24 +228,45 @@ When browsing tasks with Snacks picker, the following actions are available:
 
 ## Views
 
-Views provide quick access to filtered task lists, similar to Motion's view system. Views help you focus on specific subsets of tasks for different workflows.
+tasknotes.nvim integrates with **Obsidian Bases** for powerful, flexible task views. Views are defined in `.base` files (located in `TaskNotes/Views/` in your vault) and support complex filtering with dates, projects, contexts, and more.
 
-### Built-in Views
+### Obsidian Bases Integration
 
-| View          | Description                                     | Filter                                 |
-| ------------- | ----------------------------------------------- | -------------------------------------- |
-| `inbox`       | Tasks without project or context (needs triage) | No projects AND no contexts            |
-| `today`       | Tasks due or scheduled for today or earlier     | `due <= today` OR `scheduled <= today` |
-| `overdue`     | Past-due incomplete tasks                       | `due < today` AND not completed        |
-| `unscheduled` | Tasks without due or scheduled dates            | No `due` AND no `scheduled`            |
+Views are loaded from `.base` files in your vault's `TaskNotes/Views/` directory. These files are automatically discovered and parsed by the plugin.
+
+**Key features:**
+
+- Complex filter expressions with `and`/`or` logic
+- Date functions (`today()`, date comparisons, date arithmetic)
+- Property access (status, priority, projects, contexts, tags)
+- List operations (`.isEmpty()`, `.contains()`)
+- Recurring task support
+- Blocking/dependency filters
+
+### Example Views
+
+Your vault includes several pre-configured views:
+
+| View        | Description                                  | Source File           |
+| ----------- | -------------------------------------------- | --------------------- |
+| All Tasks   | All tasks in the vault                       | `tasks-default.base`  |
+| Today       | Tasks due or scheduled for today             | `tasks-default.base`  |
+| Overdue     | Past-due incomplete tasks                    | `tasks-default.base`  |
+| This Week   | Tasks due or scheduled this week             | `tasks-default.base`  |
+| Unscheduled | Tasks without due or scheduled dates         | `tasks-default.base`  |
+| Not Blocked | Tasks not blocked by incomplete dependencies | `tasks-default.base`  |
+| Kanban      | Kanban board grouped by status               | `kanban-default.base` |
+| Agenda      | Week agenda view                             | `agenda-default.base` |
 
 ### Using Views
 
-**Open a specific view:**
+**Open a specific view by ID:**
 
 ```vim
-:TaskNotesView inbox
-:TaskNotesView today
+" View ID format: <filename>:<view name>
+:TaskNotesView tasks-default:Today
+:TaskNotesView tasks-default:Overdue
+:TaskNotesView tasks-default:Not Blocked
 ```
 
 **Open view selector:**
@@ -257,57 +277,64 @@ Views provide quick access to filtered task lists, similar to Motion's view syst
 " Or press <C-v> while in the task picker
 ```
 
-### Custom Views
+### Creating Custom Views
 
-Create your own saved views for common workflows:
+Views are defined in `.base` files. To create a custom view:
 
-**Save a custom view:**
+1. **In Obsidian:** Use the TaskNotes plugin UI to create/edit views
+2. **Manually:** Edit `.base` files in `TaskNotes/Views/` directory
 
-```vim
-:TaskNotesSaveView my_work_tasks Work-related high priority items
-" This will prompt you to select a filter type
+**Example `.base` file structure:**
+
+```yaml
+filters:
+  and:
+    - note.type == "task"
+
+views:
+  - type: tasknotesTaskList
+    name: "High Priority Work"
+    filters:
+      and:
+        - status != "done"
+        - priority == "high"
+        - 'contexts.contains("@work")'
+    sort:
+      - column: due
+        direction: ASC
 ```
 
-**Delete a custom view:**
+**Supported filter expressions:**
 
-```vim
-:TaskNotesDeleteView my_work_tasks
-```
-
-**Example custom views:**
-
-- `urgent_work` - High priority tasks in @work context
-- `home_weekend` - Tasks in @home context
-- `project_alpha` - All tasks for Project Alpha
-- `quick_wins` - Low estimate, high priority tasks
+- Property comparisons: `status == "done"`, `priority != "none"`
+- Date functions: `date(due) < today()`, `date(due) == today()`
+- Date arithmetic: `date(due) <= today() + "7 days"`
+- List operations: `.isEmpty()`, `.contains("value")`
+- Logical operators: `and:`, `or:` (nested arrays)
+- Property paths: `note.type`, `file.tags`, `projects`, `contexts`
 
 ### View Configuration
 
-Configure view behavior in your setup:
+Configure view-related keymaps in your setup:
 
 ```lua
 require("tasknotes").setup({
+  -- Views are loaded from TaskNotes/Views/*.base files in your vault
   views = {
-    -- How to identify inbox tasks
-    inbox_definition = "no_project_or_context",
-
-    -- Days ahead to include in "today" view (0 = only today)
-    today_range = 0,
-
     keymaps = {
-      view_selector = "<C-v>", -- In picker
+      view_selector = "<C-v>", -- In picker: open view selector
     },
   },
 
   keymaps = {
-    view_selector = "<leader>tv", -- Global
+    view_selector = "<leader>tv", -- Global: open view selector
   },
 })
 ```
 
 ### View Persistence
 
-Custom views are saved to `~/.local/state/nvim/tasknotes/views.json` and persist across Neovim sessions.
+Views are stored as `.base` files in your vault's `TaskNotes/Views/` directory. They are version-controlled with your vault and sync across devices via Obsidian Sync or git.
 
 ## TaskNotes File Format
 

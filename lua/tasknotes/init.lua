@@ -156,27 +156,6 @@ function M.show_view_selector()
   end
 end
 
--- Save current filter as a custom view
-function M.save_view(name, description, filter)
-  local views = require("tasknotes.views")
-  local view = views.create_view(name, description, filter)
-  local success = views.save_view(name, view)
-  if success then
-    vim.notify("View saved: " .. name, vim.log.levels.INFO)
-  end
-  return success
-end
-
--- Delete a custom view
-function M.delete_view(view_name)
-  local views = require("tasknotes.views")
-  local success = views.delete_view(view_name)
-  if success then
-    vim.notify("View deleted: " .. view_name, vim.log.levels.INFO)
-  end
-  return success
-end
-
 -- List all views (shows picker)
 function M.list_views()
   M.show_view_selector()

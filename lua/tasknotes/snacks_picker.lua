@@ -9,7 +9,7 @@ end
 
 local task_manager = require("tasknotes.task_manager")
 local config = require("tasknotes.config")
-local views = require("tasknotes.views")
+local bases_parser = require("tasknotes.bases_parser")
 
 -- Helper function to safely convert values to strings (handles vim.NIL)
 local function safe_string(value)
@@ -275,40 +275,70 @@ function M.browse_by_context(context)
 end
 
 -- Browse by view
-function M.browse_by_view(view_name)
-  local view = views.get_view(view_name)
+function M.browse_by_view(view_id)
+  local opts = config.get()
+  local views_dir = vim.fn.expand(opts.vault_path) .. "/TaskNotes/Views"
+
+  local view, err = bases_parser.get_view(view_id, views_dir)
   if not view then
-    vim.notify("View not found: " .. view_name, vim.log.levels.ERROR)
+    vim.notify("View not found: " .. view_id .. (err and (" - " .. err) or ""), vim.log.levels.ERROR)
     return
   end
 
+  -- Combine base filters and view-specific filters
+  local combined_filters = nil
+  if view.base_filters and view.view_filters then
+    combined_filters = {
+      ['and'] = {
+        view.base_filters,
+        view.view_filters,
+      }
+    }
+  elseif view.base_filters then
+    combined_filters = view.base_filters
+  elseif view.view_filters then
+    combined_filters = view.view_filters
+  end
+
   M.browse_tasks({
-    filter = view.filter,
+    filter = combined_filters and { bases_filters = combined_filters } or nil,
     view_name = view.name,
   })
 end
 
 -- Show view selector
 function M.show_view_selector()
-  local all_views = views.list_views()
+  local opts = config.get()
+  local views_dir = vim.fn.expand(opts.vault_path) .. "/TaskNotes/Views"
+
+  local all_views, err = bases_parser.list_views(views_dir)
+  if err then
+    vim.notify("Failed to load views: " .. err, vim.log.levels.ERROR)
+    return
+  end
 
   -- Convert views to picker items
   local items = {}
-  for name, view in pairs(all_views) do
+  for view_id, view in pairs(all_views) do
     table.insert(items, {
-      text = string.format("%-20s %s", view.name, view.description or ""),
-      view_name = name,
+      text = string.format("%-30s [%s]", view.name, view.description or ""),
+      view_id = view_id,
       search = view.name .. " " .. (view.description or ""),
     })
   end
 
-  -- Sort items alphabetically
+  -- Sort items alphabetically by name
   table.sort(items, function(a, b)
-    return a.view_name < b.view_name
+    return a.text < b.text
   end)
 
+  if #items == 0 then
+    vim.notify("No Bases views found in " .. views_dir, vim.log.levels.WARN)
+    return
+  end
+
   snacks.picker.pick({
-    prompt = "Select View",
+    prompt = "Select TaskNotes View",
     items = items,
     format = function(item)
       return { { item.text, "SnacksPickerNormal" } }
@@ -316,8 +346,8 @@ function M.show_view_selector()
     preview = false, -- Disable preview for non-file items
     actions = {
       confirm = function(item)
-        if item and item.view_name then
-          M.browse_by_view(item.view_name)
+        if item and item.view_id then
+          M.browse_by_view(item.view_id)
         end
       end,
     },

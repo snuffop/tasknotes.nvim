@@ -3,6 +3,7 @@ local M = {}
 local config = require("tasknotes.config")
 local parser = require("tasknotes.parser")
 local cache_module = require("tasknotes.cache")
+local bases_evaluator = require("tasknotes.bases_evaluator")
 
 -- Task cache
 M.tasks = {}
@@ -358,40 +359,10 @@ function M.get_tasks(filter)
 
     -- Apply additional filters if provided
     if filter then
-      -- View type filters
-      if filter.view_type then
-        if filter.view_type == "inbox" then
-          -- Inbox: tasks without projects AND contexts
-          local has_project = task.projects and #task.projects > 0
-          local has_context = task.contexts and #task.contexts > 0
-          if has_project or has_context then
-            matches = false
-          end
-        elseif filter.view_type == "today" then
-          -- Today: tasks due or scheduled today or earlier
-          local today = os.date("%Y-%m-%d")
-          local is_today = false
-          if task.due and task.due <= today then
-            is_today = true
-          elseif task.scheduled and task.scheduled <= today then
-            is_today = true
-          end
-          if not is_today then
-            matches = false
-          end
-        elseif filter.view_type == "overdue" then
-          -- Overdue: past due date and not completed
-          local today = os.date("%Y-%m-%d")
-          local status_def = config.get_status(task.status)
-          local is_overdue = task.due and task.due < today and not status_def.is_completed
-          if not is_overdue then
-            matches = false
-          end
-        elseif filter.view_type == "unscheduled" then
-          -- Unscheduled: no due or scheduled dates
-          if task.due or task.scheduled then
-            matches = false
-          end
+      -- Bases filter expressions (from .base files)
+      if filter.bases_filters then
+        if not bases_evaluator.evaluate(filter.bases_filters, task) then
+          matches = false
         end
       end
 

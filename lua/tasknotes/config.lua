@@ -122,14 +122,10 @@ local defaults = {
     },
   },
 
-  -- Views configuration
+  -- Views configuration (Obsidian Bases)
+  -- Views are loaded from TaskNotes/Views/*.base files in your vault
+  -- Views must be created/edited in Obsidian or by manually editing .base files
   views = {
-    -- Inbox view definition
-    inbox_definition = "no_project_or_context", -- How to identify inbox tasks
-
-    -- Today view range (days ahead to include)
-    today_range = 0, -- 0 = only today, 1 = today and tomorrow, etc.
-
     -- View-related keymaps
     keymaps = {
       view_selector = "<C-v>", -- In picker: open view selector
