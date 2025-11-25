@@ -3,7 +3,7 @@ local M = {}
 local config = require("tasknotes.config")
 local parser = require("tasknotes.parser")
 local cache_module = require("tasknotes.cache")
-local bases_evaluator = require("tasknotes.bases_evaluator")
+local bases = require("bases")
 
 -- Task cache
 M.tasks = {}
@@ -361,7 +361,7 @@ function M.get_tasks(filter)
     if filter then
       -- Bases filter expressions (from .base files)
       if filter.bases_filters then
-        if not bases_evaluator.evaluate(filter.bases_filters, task) then
+        if not bases.evaluate(filter.bases_filters, task) then
           matches = false
         end
       end

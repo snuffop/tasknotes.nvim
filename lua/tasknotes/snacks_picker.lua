@@ -9,7 +9,7 @@ end
 
 local task_manager = require("tasknotes.task_manager")
 local config = require("tasknotes.config")
-local bases_parser = require("tasknotes.bases_parser")
+local bases = require("bases")
 
 -- Helper function to safely convert values to strings (handles vim.NIL)
 local function safe_string(value)
@@ -282,7 +282,7 @@ function M.browse_by_view(view_id)
   local views_dir = vim.fn.expand(opts.vault_path) .. "/TaskNotes/Views"
   vim.notify("DEBUG: views_dir = " .. views_dir, vim.log.levels.INFO)
 
-  local view, err = bases_parser.get_view(view_id, views_dir)
+  local view, err = bases.get_view(view_id, views_dir, { view_type = "tasknotesTaskList" })
   if not view then
     vim.notify("View not found: " .. view_id .. (err and (" - " .. err) or ""), vim.log.levels.ERROR)
     return
@@ -317,7 +317,7 @@ function M.show_view_selector()
   local opts = config.get()
   local views_dir = vim.fn.expand(opts.vault_path) .. "/TaskNotes/Views"
 
-  local all_views, err = bases_parser.list_views(views_dir)
+  local all_views, err = bases.list_views(views_dir, { view_type = "tasknotesTaskList" })
   if err then
     vim.notify("Failed to load views: " .. err, vim.log.levels.ERROR)
     return
