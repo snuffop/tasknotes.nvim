@@ -98,6 +98,12 @@ function M.setup(user_config)
     end, { desc = "Toggle TaskNote timer" })
   end
 
+  if opts.keymaps.view_selector then
+    vim.keymap.set("n", opts.keymaps.view_selector, function()
+      M.show_view_selector()
+    end, { desc = "Open TaskNotes view selector" })
+  end
+
   -- Auto-save timer state periodically
   if opts.time_tracking.enabled then
     local timer = vim.loop.new_timer()
@@ -126,6 +132,54 @@ function M.browse_tasks(filter)
   else
     vim.notify("Snacks.nvim not available", vim.log.levels.ERROR)
   end
+end
+
+-- Browse tasks by view
+function M.browse_by_view(view_name)
+  local has_snacks = pcall(require, "snacks")
+  if has_snacks then
+    local picker = require("tasknotes.snacks_picker")
+    picker.browse_by_view(view_name)
+  else
+    vim.notify("Snacks.nvim not available", vim.log.levels.ERROR)
+  end
+end
+
+-- Show view selector
+function M.show_view_selector()
+  local has_snacks = pcall(require, "snacks")
+  if has_snacks then
+    local picker = require("tasknotes.snacks_picker")
+    picker.show_view_selector()
+  else
+    vim.notify("Snacks.nvim not available", vim.log.levels.ERROR)
+  end
+end
+
+-- Save current filter as a custom view
+function M.save_view(name, description, filter)
+  local views = require("tasknotes.views")
+  local view = views.create_view(name, description, filter)
+  local success = views.save_view(name, view)
+  if success then
+    vim.notify("View saved: " .. name, vim.log.levels.INFO)
+  end
+  return success
+end
+
+-- Delete a custom view
+function M.delete_view(view_name)
+  local views = require("tasknotes.views")
+  local success = views.delete_view(view_name)
+  if success then
+    vim.notify("View deleted: " .. view_name, vim.log.levels.INFO)
+  end
+  return success
+end
+
+-- List all views (shows picker)
+function M.list_views()
+  M.show_view_selector()
 end
 
 -- Create new task

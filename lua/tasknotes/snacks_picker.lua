@@ -9,6 +9,7 @@ end
 
 local task_manager = require("tasknotes.task_manager")
 local config = require("tasknotes.config")
+local views = require("tasknotes.views")
 
 -- Helper function to safely convert values to strings (handles vim.NIL)
 local function safe_string(value)
@@ -106,9 +107,15 @@ function M.browse_tasks(opts)
     table.insert(items, format_task(task))
   end
 
+  -- Determine prompt text
+  local prompt_text = "TaskNotes"
+  if opts.view_name then
+    prompt_text = "TaskNotes [" .. opts.view_name .. "]"
+  end
+
   -- Create Snacks picker
   snacks.picker.pick({
-    prompt = "TaskNotes",
+    prompt = prompt_text,
     items = items,
 
     -- Layout with preview support (telescope-style)
@@ -240,6 +247,14 @@ function M.browse_tasks(opts)
           vim.notify("Time tracker not available", vim.log.levels.ERROR)
         end
       end,
+
+      -- View selector (Ctrl-v)
+      ["<C-v>"] = function(item, picker)
+        picker:close()
+        vim.schedule(function()
+          M.show_view_selector()
+        end)
+      end,
     },
   })
 end
@@ -257,6 +272,55 @@ end
 -- Filter by context
 function M.browse_by_context(context)
   M.browse_tasks({ filter = { context = context } })
+end
+
+-- Browse by view
+function M.browse_by_view(view_name)
+  local view = views.get_view(view_name)
+  if not view then
+    vim.notify("View not found: " .. view_name, vim.log.levels.ERROR)
+    return
+  end
+
+  M.browse_tasks({
+    filter = view.filter,
+    view_name = view.name,
+  })
+end
+
+-- Show view selector
+function M.show_view_selector()
+  local all_views = views.list_views()
+
+  -- Convert views to picker items
+  local items = {}
+  for name, view in pairs(all_views) do
+    table.insert(items, {
+      text = string.format("%-20s %s", view.name, view.description or ""),
+      view_name = name,
+      search = view.name .. " " .. (view.description or ""),
+    })
+  end
+
+  -- Sort items alphabetically
+  table.sort(items, function(a, b)
+    return a.view_name < b.view_name
+  end)
+
+  snacks.picker.pick({
+    prompt = "Select View",
+    items = items,
+    format = function(item)
+      return { { item.text, "SnacksPickerNormal" } }
+    end,
+    actions = {
+      select = function(item)
+        if item and item.view_name then
+          M.browse_by_view(item.view_name)
+        end
+      end,
+    },
+  })
 end
 
 -- Setup function (no-op for Snacks, but kept for compatibility)

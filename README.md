@@ -6,7 +6,8 @@ A Neovim plugin for managing [TaskNotes](https://github.com/joshklein/obsidian-t
 
 ## Features
 
-- **Browse & Search Tasks**: Telescope integration for fast task browsing with filtering by status, priority, context, and project
+- **Views System**: Motion-inspired views (Inbox, Today, Overdue, etc.) with support for custom saved views
+- **Browse & Search Tasks**: Snacks picker integration for fast task browsing with filtering by status, priority, context, and project
 - **Create & Edit Tasks**: NUI-based forms for creating new tasks and editing existing ones
 - **Time Tracking**: Built-in time tracker with start/stop timers and time entry management
 - **YAML Frontmatter Support**: Full support for TaskNotes file format with custom field mapping
@@ -185,32 +186,37 @@ The following settings are imported from Obsidian:
 
 ### Commands
 
-| Command                           | Description                               |
-| --------------------------------- | ----------------------------------------- |
-| `:TaskNotesBrowse`                | Open Telescope picker to browse all tasks |
-| `:TaskNotesNew`                   | Create a new task with form               |
-| `:TaskNotesEdit`                  | Edit current task metadata                |
-| `:TaskNotesRescan`                | Rescan vault directory for tasks          |
-| `:TaskNotesTimerToggle`           | Start/stop timer for current task         |
-| `:TaskNotesTimerStatus`           | Show active timer status                  |
-| `:TaskNotesTimeEntries`           | View time entries for current task        |
-| `:TaskNotesByStatus`              | Browse tasks filtered by status           |
-| `:TaskNotesByPriority`            | Browse tasks filtered by priority         |
-| `:TaskNotesByContext`             | Browse tasks filtered by context          |
-| `:TaskNotesImportObsidian <path>` | Import settings from Obsidian vault       |
+| Command                            | Description                                |
+| ---------------------------------- | ------------------------------------------ |
+| `:TaskNotesBrowse`                 | Open Snacks picker to browse all tasks     |
+| `:TaskNotesNew`                    | Create a new task with form                |
+| `:TaskNotesEdit`                   | Edit current task metadata                 |
+| `:TaskNotesRescan`                 | Rescan vault directory for tasks           |
+| `:TaskNotesView [name]`            | Open view by name (or show selector)       |
+| `:TaskNotesSaveView <name> [desc]` | Save custom view with name and description |
+| `:TaskNotesDeleteView <name>`      | Delete a saved custom view                 |
+| `:TaskNotesListViews`              | Show view selector picker                  |
+| `:TaskNotesTimerToggle`            | Start/stop timer for current task          |
+| `:TaskNotesTimerStatus`            | Show active timer status                   |
+| `:TaskNotesTimeEntries`            | View time entries for current task         |
+| `:TaskNotesByStatus`               | Browse tasks filtered by status            |
+| `:TaskNotesByPriority`             | Browse tasks filtered by priority          |
+| `:TaskNotesByContext`              | Browse tasks filtered by context           |
+| `:TaskNotesImportObsidian <path>`  | Import settings from Obsidian vault        |
 
 ### Default Keymaps
 
-| Keymap       | Command                | Description       |
-| ------------ | ---------------------- | ----------------- |
-| `<leader>tb` | `TaskNotesBrowse`      | Browse tasks      |
-| `<leader>tn` | `TaskNotesNew`         | Create new task   |
-| `<leader>te` | `TaskNotesEdit`        | Edit current task |
-| `<leader>tt` | `TaskNotesTimerToggle` | Toggle timer      |
+| Keymap       | Command                | Description        |
+| ------------ | ---------------------- | ------------------ |
+| `<leader>tb` | `TaskNotesBrowse`      | Browse tasks       |
+| `<leader>tn` | `TaskNotesNew`         | Create new task    |
+| `<leader>te` | `TaskNotesEdit`        | Edit current task  |
+| `<leader>tt` | `TaskNotesTimerToggle` | Toggle timer       |
+| `<leader>tv` | `TaskNotesListViews`   | Open view selector |
 
-### Telescope Actions
+### Picker Actions
 
-When browsing tasks with Telescope, the following actions are available:
+When browsing tasks with Snacks picker, the following actions are available:
 
 | Keymap  | Action                |
 | ------- | --------------------- |
@@ -219,6 +225,89 @@ When browsing tasks with Telescope, the following actions are available:
 | `<C-e>` | Edit task metadata    |
 | `<C-x>` | Delete task           |
 | `<C-t>` | Toggle timer for task |
+| `<C-v>` | Open view selector    |
+
+## Views
+
+Views provide quick access to filtered task lists, similar to Motion's view system. Views help you focus on specific subsets of tasks for different workflows.
+
+### Built-in Views
+
+| View          | Description                                     | Filter                                 |
+| ------------- | ----------------------------------------------- | -------------------------------------- |
+| `inbox`       | Tasks without project or context (needs triage) | No projects AND no contexts            |
+| `today`       | Tasks due or scheduled for today or earlier     | `due <= today` OR `scheduled <= today` |
+| `overdue`     | Past-due incomplete tasks                       | `due < today` AND not completed        |
+| `unscheduled` | Tasks without due or scheduled dates            | No `due` AND no `scheduled`            |
+
+### Using Views
+
+**Open a specific view:**
+
+```vim
+:TaskNotesView inbox
+:TaskNotesView today
+```
+
+**Open view selector:**
+
+```vim
+:TaskNotesListViews
+" Or use keymap: <leader>tv
+" Or press <C-v> while in the task picker
+```
+
+### Custom Views
+
+Create your own saved views for common workflows:
+
+**Save a custom view:**
+
+```vim
+:TaskNotesSaveView my_work_tasks Work-related high priority items
+" This will prompt you to select a filter type
+```
+
+**Delete a custom view:**
+
+```vim
+:TaskNotesDeleteView my_work_tasks
+```
+
+**Example custom views:**
+
+- `urgent_work` - High priority tasks in @work context
+- `home_weekend` - Tasks in @home context
+- `project_alpha` - All tasks for Project Alpha
+- `quick_wins` - Low estimate, high priority tasks
+
+### View Configuration
+
+Configure view behavior in your setup:
+
+```lua
+require("tasknotes").setup({
+  views = {
+    -- How to identify inbox tasks
+    inbox_definition = "no_project_or_context",
+
+    -- Days ahead to include in "today" view (0 = only today)
+    today_range = 0,
+
+    keymaps = {
+      view_selector = "<C-v>", -- In picker
+    },
+  },
+
+  keymaps = {
+    view_selector = "<leader>tv", -- Global
+  },
+})
+```
+
+### View Persistence
+
+Custom views are saved to `~/.local/state/nvim/tasknotes/views.json` and persist across Neovim sessions.
 
 ## TaskNotes File Format
 

@@ -122,12 +122,27 @@ local defaults = {
     },
   },
 
+  -- Views configuration
+  views = {
+    -- Inbox view definition
+    inbox_definition = "no_project_or_context", -- How to identify inbox tasks
+
+    -- Today view range (days ahead to include)
+    today_range = 0, -- 0 = only today, 1 = today and tomorrow, etc.
+
+    -- View-related keymaps
+    keymaps = {
+      view_selector = "<C-v>", -- In picker: open view selector
+    },
+  },
+
   -- Keymaps
   keymaps = {
     browse = "<leader>tb",
     new_task = "<leader>tn",
     edit_task = "<leader>te",
     toggle_timer = "<leader>tt",
+    view_selector = "<leader>tv", -- Global: open view selector
   },
 }
 
