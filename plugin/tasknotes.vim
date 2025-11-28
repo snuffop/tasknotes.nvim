@@ -11,6 +11,7 @@ command! TaskNotesBrowse lua require('tasknotes').browse_tasks()
 command! TaskNotesNew lua require('tasknotes').new_task()
 command! TaskNotesEdit lua require('tasknotes').edit_task()
 command! TaskNotesRescan lua require('tasknotes').rescan()
+command! TaskNotesClearCache lua require('tasknotes').clear_cache()
 
 " Time tracking commands
 command! TaskNotesTimerToggle lua require('tasknotes').toggle_timer()

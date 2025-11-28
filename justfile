@@ -40,6 +40,12 @@
         -c "lua MiniTest.run_file('tests/test_telescope.lua')" \
         -c "qall"
 
+# Run cache tests only
+@test-cache:
+    nvim --headless --noplugin -u scripts/minimal_init.lua \
+        -c "lua MiniTest.run_file('tests/test_cache.lua')" \
+        -c "qall"
+
 # Clean up test artifacts
 @clean:
     find . -type d -name "*.test" -exec rm -rf {} + 2>/dev/null || true

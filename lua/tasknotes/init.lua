@@ -237,6 +237,11 @@ function M.rescan()
   task_manager.scan_vault()
 end
 
+-- Clear cache and force fresh vault scan
+function M.clear_cache()
+  task_manager.clear_cache()
+end
+
 -- Get statusline component
 function M.statusline()
   local time_tracker = require("tasknotes.ui.time_tracker")

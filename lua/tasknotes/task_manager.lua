@@ -79,6 +79,18 @@ function M.scan_vault(force_validate)
 
   if opts.cache.enabled then
     persistent_cache = cache_module.load(cache_path)
+
+    -- Validate vault path if cache was loaded successfully
+    if persistent_cache then
+      local valid, message = cache_module.validate_vault_path(persistent_cache, vault_path)
+      if not valid then
+        vim.notify(
+          string.format("Cache invalidated: %s. Rebuilding cache...", message),
+          vim.log.levels.WARN
+        )
+        persistent_cache = nil -- Invalidate cache to trigger full scan
+      end
+    end
   end
 
   -- Fast path: trust cache without validation
@@ -141,7 +153,7 @@ function M.scan_vault(force_validate)
   end
 
   if not persistent_cache then
-    persistent_cache = cache_module.new()
+    persistent_cache = cache_module.new(vault_path)
   end
 
   local files_parsed = 0
@@ -206,7 +218,7 @@ function M.scan_vault(force_validate)
 
   -- Save updated cache
   if opts.cache.enabled then
-    local success, err = cache_module.save(cache_path, persistent_cache)
+    local success, err = cache_module.save(cache_path, persistent_cache, vault_path)
     if not success then
       vim.notify("Failed to save cache: " .. (err or "unknown error"), vim.log.levels.WARN)
     end
@@ -564,7 +576,7 @@ local function update_cache_file(filepath, task)
   -- Load existing cache
   local persistent_cache = cache_module.load(cache_path)
   if not persistent_cache then
-    persistent_cache = cache_module.new()
+    persistent_cache = cache_module.new(vault_path)
   end
 
   -- Update cache entry
@@ -580,7 +592,7 @@ local function update_cache_file(filepath, task)
   end
 
   -- Save cache
-  cache_module.save(cache_path, persistent_cache)
+  cache_module.save(cache_path, persistent_cache, vault_path)
 end
 
 -- Refresh a single task from disk
@@ -713,7 +725,7 @@ function M.validate_cache_async()
 
         -- Save cache
         if updates_needed or cache_module.needs_validation(persistent_cache, opts.cache.validation_interval) then
-          cache_module.save(cache_path, persistent_cache)
+          cache_module.save(cache_path, persistent_cache, vault_path)
           if updates_needed then
             vim.notify("Task cache updated in background", vim.log.levels.INFO)
           end
@@ -871,6 +883,31 @@ function M.validate_dependencies(task, new_dependencies)
   local has_circular, err = has_cycle(task.path, dependencies)
   if has_circular then
     return false, err
+  end
+
+  return true
+end
+
+-- Clear the persistent cache file and force a fresh vault scan
+function M.clear_cache()
+  local cache_path = get_cache_path()
+
+  -- Delete cache file if it exists
+  if vim.fn.filereadable(cache_path) == 1 then
+    local success = os.remove(cache_path)
+    if success then
+      vim.notify("Cache cleared successfully", vim.log.levels.INFO)
+      -- Clear in-memory cache and trigger fresh scan
+      M.tasks = {}
+      M.tasks_by_path = {}
+      M.is_loaded = false
+      M.scan_vault(true)
+    else
+      vim.notify("Failed to delete cache file", vim.log.levels.ERROR)
+      return false
+    end
+  else
+    vim.notify("No cache file found", vim.log.levels.WARN)
   end
 
   return true

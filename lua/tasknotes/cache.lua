@@ -1,7 +1,7 @@
 local M = {}
 
 -- Cache version for schema evolution
-local CACHE_VERSION = 1
+local CACHE_VERSION = 2
 
 -- Get file modification time
 local function get_mtime(filepath)
@@ -37,9 +37,13 @@ function M.load(cache_path)
 end
 
 -- Save cache to file
-function M.save(cache_path, cache)
+-- @param cache_path string: Path to cache file
+-- @param cache table: Cache data structure
+-- @param vault_path string: Current vault path to store in cache
+function M.save(cache_path, cache, vault_path)
   cache.version = CACHE_VERSION
   cache.last_updated = os.time()
+  cache.vault_path = vault_path
 
   local json = vim.json.encode(cache)
 
@@ -83,10 +87,31 @@ function M.needs_validation(cache, validation_interval)
   return time_since_validation > validation_interval
 end
 
+-- Validate that cache vault_path matches current vault_path
+-- Returns: valid (boolean), message (string)
+function M.validate_vault_path(cache, current_vault_path)
+  if not cache or not cache.vault_path then
+    return false, "Cache missing vault_path (old cache format or corrupted)"
+  end
+
+  -- Normalize paths to handle symlinks, trailing slashes, ~ expansion
+  local cached_path = vim.fn.resolve(vim.fn.fnamemodify(cache.vault_path, ":p"))
+  local current_path = vim.fn.resolve(vim.fn.fnamemodify(current_vault_path, ":p"))
+
+  if cached_path ~= current_path then
+    return false,
+      string.format("Vault moved: cached='%s', current='%s'", cached_path, current_path)
+  end
+
+  return true, "Vault path valid"
+end
+
 -- Create new empty cache
-function M.new()
+-- @param vault_path string|nil: Optional vault path to initialize cache with
+function M.new(vault_path)
   return {
     version = CACHE_VERSION,
+    vault_path = vault_path or "", -- Vault path for validation
     last_updated = os.time(),
     last_validated = 0, -- Unix timestamp of last validation
     file_list = {}, -- List of all .md file paths in vault
