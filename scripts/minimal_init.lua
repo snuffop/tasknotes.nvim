@@ -6,34 +6,51 @@ vim.cmd([[let &rtp.=','.getcwd()]])
 
 -- Set up 'mini.test' only when calling headless Neovim
 if #vim.api.nvim_list_uis() == 0 then
-  -- Add 'mini.nvim' to 'runtimepath'
-  -- Try multiple locations where mini.nvim might be installed
-  local possible_paths = {
-    vim.fn.stdpath('data') .. '/lazy/mini.nvim',
-    vim.fn.stdpath('data') .. '/site/pack/deps/start/mini.nvim',
-    vim.fn.stdpath('data') .. '/site/pack/*/start/mini.nvim',
+  -- Add required dependencies to runtimepath
+  local dependencies = {
+    {
+      name = "mini.nvim",
+      paths = {
+        vim.fn.stdpath('data') .. '/lazy/mini.nvim',
+        vim.fn.stdpath('data') .. '/site/pack/deps/start/mini.nvim',
+        vim.fn.stdpath('data') .. '/site/pack/*/start/mini.nvim',
+      },
+      required = true,
+    },
+    {
+      name = "bases.nvim",
+      paths = {
+        -- Local development path (same parent directory)
+        vim.fn.fnamemodify(vim.fn.getcwd(), ':h') .. '/bases.nvim',
+        -- Plugin manager paths
+        vim.fn.stdpath('data') .. '/lazy/bases.nvim',
+        vim.fn.stdpath('data') .. '/site/pack/*/start/bases.nvim',
+      },
+      required = true,
+    },
   }
 
-  local mini_path = nil
-  for _, path in ipairs(possible_paths) do
-    if vim.fn.isdirectory(path) == 1 then
-      mini_path = path
-      break
+  -- Load dependencies
+  for _, dep in ipairs(dependencies) do
+    local found = false
+    for _, path in ipairs(dep.paths) do
+      if vim.fn.isdirectory(path) == 1 then
+        vim.cmd('set rtp+=' .. path)
+        found = true
+        break
+      end
+    end
+
+    if not found and dep.required then
+      error(string.format([[
+%s not found. Please install it first or ensure it's in the expected location.
+
+Searched paths:
+%s
+]], dep.name, table.concat(dep.paths, "\n")))
     end
   end
 
-  if mini_path then
-    vim.cmd('set rtp+=' .. mini_path)
-    require('mini.test').setup()
-  else
-    error([[
-mini.nvim not found. Please install it first:
-
-  Using lazy.nvim:
-  { 'echasnovski/mini.nvim' }
-
-  Using packer.nvim:
-  use 'echasnovski/mini.nvim'
-]])
-  end
+  -- Setup mini.test
+  require('mini.test').setup()
 end

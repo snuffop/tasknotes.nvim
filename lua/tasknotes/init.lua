@@ -5,18 +5,44 @@ local task_manager = require("tasknotes.task_manager")
 
 -- Check dependencies
 local function check_dependencies()
+  local errors = {}
   local warnings = {}
 
-  -- Check for nui.nvim
-  local has_nui = pcall(require, "nui.popup")
-  if not has_nui then
-    table.insert(warnings, "nui.nvim not found - UI features will not work")
+  -- Check for bases.nvim (REQUIRED)
+  local has_bases, bases = pcall(require, "bases")
+  if not has_bases then
+    table.insert(errors, "bases.nvim not found - This is a required dependency!")
+    table.insert(errors, "  Install: https://github.com/emiller/bases.nvim")
+  else
+    -- Validate bases.nvim has required API
+    local required_api = {"get_view", "list_views", "evaluate", "query"}
+    local missing_api = {}
+    for _, func_name in ipairs(required_api) do
+      if type(bases[func_name]) ~= "function" then
+        table.insert(missing_api, func_name)
+      end
+    end
+    if #missing_api > 0 then
+      table.insert(errors, "bases.nvim found but missing required API functions:")
+      for _, func_name in ipairs(missing_api) do
+        table.insert(errors, "  - bases." .. func_name .. "()")
+      end
+      table.insert(errors, "  Please update bases.nvim to the latest version")
+    end
   end
 
-  -- Check for snacks (required for picker)
+  -- Check for nui.nvim (REQUIRED)
+  local has_nui = pcall(require, "nui.popup")
+  if not has_nui then
+    table.insert(errors, "nui.nvim not found - This is a required dependency!")
+    table.insert(errors, "  Install: https://github.com/MunifTanjim/nui.nvim")
+  end
+
+  -- Check for snacks (REQUIRED)
   local has_snacks = pcall(require, "snacks")
   if not has_snacks then
-    table.insert(warnings, "snacks.nvim not found - Task picker will not work")
+    table.insert(errors, "snacks.nvim not found - This is a required dependency!")
+    table.insert(errors, "  Install: https://github.com/folke/snacks.nvim")
   end
 
   -- Check for plenary (optional but recommended)
@@ -25,7 +51,7 @@ local function check_dependencies()
     table.insert(warnings, "plenary.nvim not found - some features may not work optimally")
   end
 
-  return warnings
+  return errors, warnings
 end
 
 -- Setup highlight groups for completed tasks
@@ -41,6 +67,24 @@ end
 -- Setup function
 function M.setup(user_config)
   user_config = user_config or {}
+
+  -- Check dependencies FIRST
+  local errors, warnings = check_dependencies()
+
+  -- Fail hard if critical dependencies are missing
+  if #errors > 0 then
+    local error_msg = "TaskNotes: Critical dependencies missing!\n\n"
+    for _, err in ipairs(errors) do
+      error_msg = error_msg .. err .. "\n"
+    end
+    error_msg = error_msg .. "\nSee README.md for installation instructions."
+    error(error_msg)
+  end
+
+  -- Show warnings for optional dependencies
+  for _, warning in ipairs(warnings) do
+    vim.notify("TaskNotes: " .. warning, vim.log.levels.WARN)
+  end
 
   -- Import from Obsidian if enabled
   if user_config.obsidian and user_config.obsidian.enabled then
@@ -63,12 +107,6 @@ function M.setup(user_config)
   setup_highlights()
 
   local opts = config.get()
-
-  -- Check dependencies
-  local warnings = check_dependencies()
-  for _, warning in ipairs(warnings) do
-    vim.notify("TaskNotes: " .. warning, vim.log.levels.WARN)
-  end
 
   -- Initial vault scan
   task_manager.scan_vault()

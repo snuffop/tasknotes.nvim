@@ -10,8 +10,9 @@ Task management plugin for Neovim using [TaskNotes](https://github.com/joshklein
 
 **Required:**
 
-- `bases.nvim` - Obsidian Bases integration (for view filtering/sorting)
+- `bases.nvim` - Obsidian Bases integration (for view filtering/sorting/evaluation)
 - `MunifTanjim/nui.nvim` - UI components (forms, tables)
+- `folke/snacks.nvim` - Task picker interface
 
 **Optional:**
 

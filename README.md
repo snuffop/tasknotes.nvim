@@ -17,10 +17,12 @@ A Neovim plugin for managing [TaskNotes](https://github.com/joshklein/obsidian-t
 ## Requirements
 
 - Neovim >= 0.5.0
-- [MunifTanjim/nui.nvim](https://github.com/MunifTanjim/nui.nvim) (required)
-- [nvim-telescope/telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) (optional but recommended)
-- [nvim-lua/plenary.nvim](https://github.com/nvim-lua/plenary.nvim) (optional but recommended)
-- `yq` command-line tool (optional, for improved YAML parsing)
+- [bases.nvim](https://github.com/emiller/bases.nvim) (required - Obsidian Bases integration)
+- [MunifTanjim/nui.nvim](https://github.com/MunifTanjim/nui.nvim) (required - UI components)
+- [folke/snacks.nvim](https://github.com/folke/snacks.nvim) (required - task picker)
+- [nvim-telescope/telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) (optional - alternative picker)
+- [nvim-lua/plenary.nvim](https://github.com/nvim-lua/plenary.nvim) (optional - utilities)
+- `yq` command-line tool (optional - improved YAML parsing)
 
 ## Installation
 
@@ -30,9 +32,11 @@ A Neovim plugin for managing [TaskNotes](https://github.com/joshklein/obsidian-t
 {
   "emiller/tasknotes.nvim",
   dependencies = {
-    "MunifTanjim/nui.nvim",
-    "nvim-telescope/telescope.nvim",
-    "nvim-lua/plenary.nvim",
+    "emiller/bases.nvim",      -- Required: Obsidian Bases integration
+    "MunifTanjim/nui.nvim",    -- Required: UI components
+    "folke/snacks.nvim",       -- Required: Task picker
+    "nvim-telescope/telescope.nvim",  -- Optional: Alternative picker
+    "nvim-lua/plenary.nvim",   -- Optional: Utilities
   },
   config = function()
     require("tasknotes").setup({
@@ -48,9 +52,11 @@ A Neovim plugin for managing [TaskNotes](https://github.com/joshklein/obsidian-t
 use {
   "emiller/tasknotes.nvim",
   requires = {
-    "MunifTanjim/nui.nvim",
-    "nvim-telescope/telescope.nvim",
-    "nvim-lua/plenary.nvim",
+    "emiller/bases.nvim",      -- Required: Obsidian Bases integration
+    "MunifTanjim/nui.nvim",    -- Required: UI components
+    "folke/snacks.nvim",       -- Required: Task picker
+    "nvim-telescope/telescope.nvim",  -- Optional: Alternative picker
+    "nvim-lua/plenary.nvim",   -- Optional: Utilities
   },
   config = function()
     require("tasknotes").setup({
@@ -464,6 +470,48 @@ tasknotes.statusline()
 local tasks = tasknotes.task_manager.get_tasks()
 local task = tasknotes.task_manager.get_task_by_path("/path/to/task.md")
 ```
+
+## Troubleshooting
+
+### Missing Dependencies Error
+
+If you see errors like:
+
+```
+TaskNotes: Critical dependencies missing!
+bases.nvim not found - This is a required dependency!
+```
+
+**Solution:** Install all required dependencies in your plugin manager:
+
+```lua
+-- Using lazy.nvim
+{
+  "emiller/tasknotes.nvim",
+  dependencies = {
+    "emiller/bases.nvim",
+    "MunifTanjim/nui.nvim",
+    "folke/snacks.nvim",
+  },
+}
+```
+
+### bases.nvim API Missing
+
+If you see:
+
+```
+TaskNotes: bases.nvim found but missing required API functions
+```
+
+**Solution:** Update bases.nvim to the latest version. The plugin requires these API functions:
+
+- `bases.get_view()` - Load view definitions
+- `bases.list_views()` - List available views
+- `bases.evaluate()` - Evaluate filter expressions
+- `bases.query()` - Filter and sort data
+
+Run `:Lazy update bases.nvim` (lazy.nvim) or `:PackerUpdate` (packer.nvim).
 
 ## Roadmap
 
