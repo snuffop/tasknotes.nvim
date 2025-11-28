@@ -46,9 +46,7 @@ blockedBy:
 end
 
 T['parse_blockedBy']['handles empty blockedBy'] = function()
-  local yaml = [[title: Task A
-status: open
-blockedBy: []]]
+  local yaml = 'title: Task A\nstatus: open\nblockedBy: []'
 
   local result = child.lua_get([[Parser.parse_yaml(...)]], { yaml })
   eq(type(result.blockedBy), 'table')

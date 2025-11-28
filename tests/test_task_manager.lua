@@ -61,24 +61,30 @@ T['create_task_object']['uses correct defaults'] = function()
 end
 
 T['create_task_object']['converts string arrays to tables'] = function()
-  local result = child.lua_get([[
-    local frontmatter = {
+  child.lua([=[
+    _G.frontmatter = {
       title = 'Test',
-      contexts = '@home',  -- String instead of array
-      projects = '[[Project]]',  -- String instead of array
+      contexts = '@home',
+      projects = '[[Project]]',
     }
-    return TaskManager.create_task_object('/test.md', frontmatter, '')
-  ]])
+    _G.result = TaskManager.create_task_object('/test.md', _G.frontmatter, '')
+  ]=])
 
-  eq(type(result.contexts), 'table')
-  eq(#result.contexts, 1)
-  eq(result.contexts[1], '@home')
-  eq(type(result.projects), 'table')
-  eq(result.projects[1], '[[Project]]')
+  local contexts_type = child.lua_get([=[type(_G.result.contexts)]=])
+  local contexts_len = child.lua_get([=[#_G.result.contexts]=])
+  local contexts_val = child.lua_get([=[_G.result.contexts[1]]=])
+  local projects_type = child.lua_get([=[type(_G.result.projects)]=])
+  local projects_val = child.lua_get([=[_G.result.projects[1]]=])
+
+  eq(contexts_type, 'table')
+  eq(contexts_len, 1)
+  eq(contexts_val, '@home')
+  eq(projects_type, 'table')
+  eq(projects_val, '[[Project]]')
 end
 
 T['create_task_object']['preserves all frontmatter fields'] = function()
-  local result = child.lua_get([[
+  local result = child.lua_get([=[
     local frontmatter = {
       title = 'Complete Task',
       status = 'in-progress',
@@ -92,7 +98,7 @@ T['create_task_object']['preserves all frontmatter fields'] = function()
       dateCreated = '2025-01-01T00:00:00Z',
     }
     return TaskManager.create_task_object('/test.md', frontmatter, 'Task body')
-  ]])
+  ]=])
 
   eq(result.title, 'Complete Task')
   eq(result.status, 'in-progress')
