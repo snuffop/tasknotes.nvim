@@ -41,9 +41,11 @@ end
 -- @param cache table: Cache data structure
 -- @param vault_path string: Current vault path to store in cache
 function M.save(cache_path, cache, vault_path)
+  local config = require("tasknotes.config")
   cache.version = CACHE_VERSION
   cache.last_updated = os.time()
   cache.vault_path = vault_path
+  cache.ignore_dirs = config.get_ignore_dirs()
 
   local json = vim.json.encode(cache)
 
@@ -103,15 +105,26 @@ function M.validate_vault_path(cache, current_vault_path)
       string.format("Vault moved: cached='%s', current='%s'", cached_path, current_path)
   end
 
+  -- Check if ignore_dirs changed
+  local config = require("tasknotes.config")
+  local current_ignore = config.get_ignore_dirs()
+  local cached_ignore = cache.ignore_dirs or {}
+
+  if not vim.deep_equal(current_ignore, cached_ignore) then
+    return false, "Ignore directories configuration changed"
+  end
+
   return true, "Vault path valid"
 end
 
 -- Create new empty cache
 -- @param vault_path string|nil: Optional vault path to initialize cache with
 function M.new(vault_path)
+  local config = require("tasknotes.config")
   return {
     version = CACHE_VERSION,
     vault_path = vault_path or "", -- Vault path for validation
+    ignore_dirs = config.get_ignore_dirs(), -- Directory ignore patterns for validation
     last_updated = os.time(),
     last_validated = 0, -- Unix timestamp of last validation
     file_list = {}, -- List of all .md file paths in vault

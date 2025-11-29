@@ -151,6 +151,46 @@ statuses = {
 }
 ```
 
+### 6. Directory Ignore Patterns
+
+Exclude directories from vault scanning with a three-tier configuration system:
+
+**Priority:** Neovim config > Obsidian settings > defaults
+
+**Defaults:** `.obsidian`, `.trash`, `.git` (always applied unless overridden)
+
+**Configuration:**
+
+```lua
+-- Use defaults only
+require("tasknotes").setup({
+  vault_path = "~/vault/Tasks",
+  -- ignore_dirs not specified, uses defaults: .obsidian, .trash, .git
+})
+
+-- Extend with Obsidian settings
+-- If .obsidian/plugins/tasknotes/data.json has:
+-- { "excludedFolders": "Archive,Templates,OLD_VAULT" }
+-- Results in: .obsidian, .trash, .git, Archive, Templates, OLD_VAULT
+
+-- Complete Neovim override
+require("tasknotes").setup({
+  vault_path = "~/vault/Tasks",
+  ignore_dirs = { "Archive", "Old", "Drafts" },
+  -- Only ignores: Archive, Old, Drafts (defaults NOT included)
+})
+
+-- Disable all ignores
+require("tasknotes").setup({
+  vault_path = "~/vault/Tasks",
+  ignore_dirs = {},  -- Empty array = no ignores
+})
+```
+
+**Performance:** Uses `find -prune` to prevent descending into ignored directories, significantly improving scan speed for large vaults.
+
+**Cache invalidation:** Cache is automatically invalidated when ignore patterns change.
+
 ## Data Flow
 
 ```
@@ -185,7 +225,10 @@ make test-parser         # Parser tests
 - `tests/test_task_manager.lua` - Task CRUD, filtering
 - `tests/test_urgency.lua` - Urgency calculations
 - `tests/test_parser.lua` - YAML parsing
-- `tests/test_dependencies.lua` - Dependency tracking (if implemented)
+- `tests/test_dependencies.lua` - Dependency tracking
+- `tests/test_cache.lua` - Cache validation and persistence
+- `tests/test_ignore_dirs.lua` - Directory ignore functionality
+- `tests/test_obsidian_importer.lua` - Obsidian settings parsing (excludedFolders, etc.)
 
 ## Configuration Points
 
@@ -226,6 +269,35 @@ urgency_coefficients = {
 }
 ```
 
+### Directory Ignore Configuration
+
+**Three-tier priority system:**
+
+1. **Defaults** (applied unless overridden): `{ ".obsidian", ".trash", ".git" }`
+2. **Obsidian settings**: Read from `.obsidian/plugins/tasknotes/data.json` field `excludedFolders` (comma-separated string)
+3. **Neovim config**: `ignore_dirs` option (complete override when set)
+
+**Examples:**
+
+```lua
+-- Use defaults + Obsidian settings (if available)
+ignore_dirs = nil  -- Default
+
+-- Complete override (defaults NOT included)
+ignore_dirs = { "Archive", "Templates", "Drafts" }
+
+-- Disable all ignores
+ignore_dirs = {}
+```
+
+**Implementation details:**
+
+- Uses `find -prune` for efficient directory exclusion
+- Cache tracks `ignore_dirs` and invalidates when changed
+- Obsidian importer reads `excludedFolders` from `data.json` (comma-separated string, automatically parsed and trimmed)
+- Directory names are matched exactly (case-sensitive on most systems)
+- Example Obsidian format: `"excludedFolders": "04_Archive,05_Attachments,OLD_VAULT"`
+
 ## Integration with bases.nvim
 
 tasknotes.nvim uses bases.nvim for:
@@ -263,6 +335,10 @@ tests/
 ├── test_task_manager.lua
 ├── test_urgency.lua
 ├── test_parser.lua
+├── test_cache.lua
+├── test_ignore_dirs.lua
+├── test_obsidian_importer.lua
+├── test_dependencies.lua
 └── helpers.lua
 ```
 

@@ -60,6 +60,23 @@ local function is_task_file(frontmatter)
   return false
 end
 
+-- Build find command with directory ignore patterns
+local function build_find_command(vault_path, ignore_dirs)
+  local cmd = string.format("find '%s'", vault_path)
+
+  -- Add -prune for each ignored directory
+  for _, dir in ipairs(ignore_dirs) do
+    -- Escape single quotes in directory names
+    local escaped_dir = dir:gsub("'", "'\\''")
+    cmd = cmd .. string.format(" -type d -name '%s' -prune -o", escaped_dir)
+  end
+
+  -- Add final file match and print
+  cmd = cmd .. " -type f -name '*.md' -print"
+
+  return cmd
+end
+
 -- Scan vault and discover all task files
 function M.scan_vault(force_validate)
   local opts = config.get()
@@ -139,7 +156,8 @@ function M.scan_vault(force_validate)
   local files = {}
   if force_validate or not persistent_cache or not persistent_cache.file_list then
     -- Need to run find command
-    local find_cmd = string.format("find '%s' -type f -name '*.md'", vault_path)
+    local ignore_dirs = config.get_ignore_dirs()
+    local find_cmd = build_find_command(vault_path, ignore_dirs)
     files = vim.fn.systemlist(find_cmd)
   else
     -- Use cached file list
@@ -644,7 +662,9 @@ function M.validate_cache_async()
   local vault_path = opts.vault_path
 
   -- Run find command asynchronously
-  vim.fn.jobstart(string.format("find '%s' -type f -name '*.md'", vault_path), {
+  local ignore_dirs = config.get_ignore_dirs()
+  local find_cmd = build_find_command(vault_path, ignore_dirs)
+  vim.fn.jobstart(find_cmd, {
     stdout_buffered = true,
     on_stdout = function(_, data, _)
       if not data then

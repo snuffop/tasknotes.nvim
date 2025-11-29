@@ -1,9 +1,17 @@
 local M = {}
 
+-- Default directories to ignore during vault scanning
+M.DEFAULT_IGNORE_DIRS = { ".obsidian", ".trash", ".git" }
+
 -- Default configuration
 local defaults = {
   -- Path to TaskNotes vault directory
   vault_path = vim.fn.expand("~/notes/tasks"),
+
+  -- Directory ignore patterns
+  -- nil = use defaults + Obsidian settings
+  -- array = complete override (including empty array to disable all ignores)
+  ignore_dirs = nil,
 
   -- Obsidian integration
   obsidian = {
@@ -189,6 +197,29 @@ end
 -- Get field mapping
 function M.get_field(internal_name)
   return M.options.field_mapping[internal_name] or internal_name
+end
+
+-- Get ignore directories with priority logic
+-- Priority: Neovim config > Obsidian settings > defaults
+function M.get_ignore_dirs()
+  local config = M.options
+
+  -- Explicit override (including empty array)
+  if config.ignore_dirs ~= nil then
+    return config.ignore_dirs
+  end
+
+  -- Merge defaults with Obsidian settings
+  local ignore_list = vim.deepcopy(M.DEFAULT_IGNORE_DIRS)
+  if config.obsidian and config.obsidian.ignore_dirs then
+    for _, dir in ipairs(config.obsidian.ignore_dirs) do
+      if not vim.tbl_contains(ignore_list, dir) then
+        table.insert(ignore_list, dir)
+      end
+    end
+  end
+
+  return ignore_list
 end
 
 return M

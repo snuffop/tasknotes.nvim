@@ -37,6 +37,19 @@ function M.map_to_nvim_config(obsidian_settings, vault_path)
   local tasks_folder = obsidian_settings.tasksFolder or "Tasks"
   config.vault_path = vault_path .. "/" .. tasks_folder
 
+  -- Obsidian integration settings
+  -- Parse excludedFolders (comma-separated string) into array
+  local excluded_folders = {}
+  if obsidian_settings.excludedFolders and obsidian_settings.excludedFolders ~= "" then
+    for folder in obsidian_settings.excludedFolders:gmatch("([^,]+)") do
+      table.insert(excluded_folders, vim.trim(folder))
+    end
+  end
+
+  config.obsidian = {
+    ignore_dirs = excluded_folders,
+  }
+
   -- Task identification
   config.task_identification_method = obsidian_settings.taskIdentificationMethod or "tag"
   config.task_tag = obsidian_settings.taskTag or "task"

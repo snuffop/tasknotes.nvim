@@ -32,7 +32,13 @@ end
 T['validate_vault_path']['accepts same vault path'] = function()
   local vault_path = helpers.create_test_vault(child)
 
-  child.lua([[_G.test_cache = {version = 2, vault_path = ..., tasks = {}, file_list = {}}]], { vault_path })
+  -- Include ignore_dirs to match current config defaults
+  child.lua([[
+    Config = require('tasknotes.config')
+    Config.setup({})
+    local ignore_dirs = Config.get_ignore_dirs()
+    _G.test_cache = {version = 2, vault_path = ..., ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
+  ]], { vault_path })
   local valid = child.lua_get([[select(1, Cache.validate_vault_path(_G.test_cache, ...))]], { vault_path })
 
   eq(valid, true)
@@ -53,7 +59,13 @@ end
 T['validate_vault_path']['normalizes paths with trailing slashes'] = function()
   local vault_path = helpers.create_test_vault(child)
 
-  child.lua([[_G.test_cache = {version = 2, vault_path = ... .. "/", tasks = {}, file_list = {}}]], { vault_path })
+  -- Include ignore_dirs to match current config defaults
+  child.lua([[
+    Config = require('tasknotes.config')
+    Config.setup({})
+    local ignore_dirs = Config.get_ignore_dirs()
+    _G.test_cache = {version = 2, vault_path = ... .. "/", ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
+  ]], { vault_path })
   local valid = child.lua_get([[select(1, Cache.validate_vault_path(_G.test_cache, ...))]], { vault_path })
 
   eq(valid, true)
@@ -63,7 +75,13 @@ end
 
 T['validate_vault_path']['handles tilde expansion'] = function()
   local expanded = child.lua_get([[vim.fn.expand("~/vault")]])
-  child.lua([[_G.test_cache = {version = 2, vault_path = vim.fn.expand("~/vault"), tasks = {}, file_list = {}}]])
+  -- Include ignore_dirs to match current config defaults
+  child.lua([[
+    Config = require('tasknotes.config')
+    Config.setup({})
+    local ignore_dirs = Config.get_ignore_dirs()
+    _G.test_cache = {version = 2, vault_path = vim.fn.expand("~/vault"), ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
+  ]])
   local valid = child.lua_get([[select(1, Cache.validate_vault_path(_G.test_cache, "~/vault"))]])
 
   eq(valid, true)
