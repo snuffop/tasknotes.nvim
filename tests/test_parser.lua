@@ -25,16 +25,20 @@ status: open
 ---
 Body content here]]
 
-  local result = child.lua_get([[Parser.split_frontmatter(...)]], { content })
-  eq(result[1] ~= nil, true) -- frontmatter exists
-  eq(result[2]:match('Body content'), 'Body content')
+  child.lua([[_G.test_result = {Parser.split_frontmatter(...)}]], { content })
+  local frontmatter = child.lua_get("_G.test_result[1]")
+  local body = child.lua_get("_G.test_result[2]")
+  eq(frontmatter ~= nil and frontmatter ~= vim.NIL, true) -- frontmatter exists
+  eq(body:match('Body content'), 'Body content')
 end
 
 T['split_frontmatter']['handles missing frontmatter'] = function()
   local content = 'Just body content'
-  local result = child.lua_get([[Parser.split_frontmatter(...)]], { content })
-  eq(result[1], vim.NIL) -- no frontmatter
-  eq(result[2], 'Just body content')
+  child.lua([[_G.test_result = {Parser.split_frontmatter(...)}]], { content })
+  local frontmatter = child.lua_get("_G.test_result[1]")
+  local body = child.lua_get("_G.test_result[2]")
+  eq(frontmatter == nil or frontmatter == vim.NIL, true) -- no frontmatter
+  eq(body, 'Just body content')
 end
 
 T['split_frontmatter']['handles empty frontmatter'] = function()
@@ -42,9 +46,11 @@ T['split_frontmatter']['handles empty frontmatter'] = function()
 ---
 Body only]]
 
-  local result = child.lua_get([[Parser.split_frontmatter(...)]], { content })
-  eq(result[1] ~= nil and result[1] ~= vim.NIL, true)
-  eq(result[2]:match('Body only'), 'Body only')
+  child.lua([[_G.test_result = {Parser.split_frontmatter(...)}]], { content })
+  local frontmatter = child.lua_get("_G.test_result[1]")
+  local body = child.lua_get("_G.test_result[2]")
+  eq(frontmatter ~= nil and frontmatter ~= vim.NIL, true)
+  eq(body:match('Body only'), 'Body only')
 end
 
 -- Test YAML parsing
