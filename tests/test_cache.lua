@@ -130,13 +130,14 @@ T['clear_cache']['removes cache file and rescans vault'] = function()
 
   -- Create a task file
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Test Task',
     status = 'open',
     priority = 'high',
   })
 
   -- Initialize config and scan vault
-  child.lua([[Config.setup({vault_path = ...})]], { vault_path })
+  child.lua([[Config.setup({vault_path = ..., task_identification_method = 'property'})]], { vault_path })
   child.lua([[TaskManager.scan_vault()]])
 
   -- Verify task was loaded
@@ -174,12 +175,13 @@ T['vault_move_integration']['invalidates cache and rebuilds when vault moves'] =
 
   -- Create task in first vault
   helpers.create_test_task(child, vault_path1, {
+    type = 'task',
     title = 'Task in Vault 1',
     status = 'open',
   })
 
   -- Initialize with first vault
-  child.lua([[Config.setup({vault_path = ...})]], { vault_path1 })
+  child.lua([[Config.setup({vault_path = ..., task_identification_method = 'property'})]], { vault_path1 })
   child.lua([[TaskManager.scan_vault()]])
 
   local task_count_vault1 = child.lua_get([[#TaskManager.tasks]])
@@ -187,12 +189,13 @@ T['vault_move_integration']['invalidates cache and rebuilds when vault moves'] =
 
   -- Create task in second vault
   helpers.create_test_task(child, vault_path2, {
+    type = 'task',
     title = 'Task in Vault 2',
     status = 'open',
   })
 
   -- "Move" vault by changing config to point to second vault
-  child.lua([[Config.setup({vault_path = ...})]], { vault_path2 })
+  child.lua([[Config.setup({vault_path = ..., task_identification_method = 'property'})]], { vault_path2 })
   child.lua([[TaskManager.scan_vault()]])
 
   -- Should load tasks from new vault (cache should be invalidated)

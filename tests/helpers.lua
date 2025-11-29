@@ -50,8 +50,8 @@ Helpers.create_test_task = function(child, vault_path, frontmatter, body, filena
   end
 
   table.insert(yaml_lines, '---')
+  table.insert(yaml_lines, '')  -- Always add empty line after frontmatter (ensures newline)
   if body then
-    table.insert(yaml_lines, '')
     table.insert(yaml_lines, body)
   end
 

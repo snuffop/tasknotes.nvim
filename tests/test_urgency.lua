@@ -12,8 +12,8 @@ local T = new_set({
       child.lua([[TaskManager = require('tasknotes.task_manager')]])
       child.lua([[Urgency = require('tasknotes.urgency')]])
       child.lua([[Config = require('tasknotes.config')]])
-      -- Initialize config with defaults
-      child.lua([[Config.setup({})]])
+      -- Initialize config with property-based identification (default is tag-based)
+      child.lua([[Config.setup({ task_identification_method = 'property' })]])
     end,
     post_once = child.stop,
   },
@@ -25,13 +25,16 @@ T['calculate_urgency'] = new_set()
 T['calculate_urgency']['assigns zero urgency to completed tasks'] = function()
   local vault_path = helpers.create_test_vault(child)
   local filepath = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Completed Task',
     status = 'done',
     priority = 'high',
     due = '2025-12-01',
   })
 
-  child.lua([[TaskManager.scan_vault()]])
+  child.lua(string.format("Config.options.vault_path = '%s'", vault_path))
+  child.lua("TaskManager.scan_vault()")
+
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
 
   -- Completed tasks should have very low urgency
@@ -43,11 +46,13 @@ end
 T['calculate_urgency']['calculates urgency for open task with high priority'] = function()
   local vault_path = helpers.create_test_vault(child)
   local filepath = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'High Priority Task',
     status = 'open',
     priority = 'high',
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
 
@@ -60,11 +65,13 @@ end
 T['calculate_urgency']['calculates urgency for normal priority task'] = function()
   local vault_path = helpers.create_test_vault(child)
   local filepath = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Normal Priority Task',
     status = 'open',
     priority = 'normal',
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
 
@@ -78,11 +85,13 @@ end
 T['calculate_urgency']['adds urgency for in-progress status'] = function()
   local vault_path = helpers.create_test_vault(child)
   local filepath = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'In Progress Task',
     status = 'in-progress',
     priority = 'normal',
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
 
@@ -100,12 +109,14 @@ T['calculate_urgency']['adds urgency for due date proximity'] = function()
   local today = child.lua_get([[os.date('!%Y-%m-%d')]])
 
   local filepath = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Due Today',
     status = 'open',
     priority = 'none',
     due = today,
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
 
@@ -121,6 +132,7 @@ T['calculate_urgency']['reduces urgency for blocked tasks'] = function()
 
   -- Create blocking task first
   local blocking_path = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Blocking Task',
     status = 'open',
     priority = 'high',
@@ -128,12 +140,14 @@ T['calculate_urgency']['reduces urgency for blocked tasks'] = function()
 
   -- Create blocked task
   local blocked_path = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Blocked Task',
     status = 'open',
     priority = 'high',
     blockedBy = { blocking_path },
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local blocking_task = child.lua_get([[TaskManager.get_task_by_path(...)]], { blocking_path })
   local blocked_task = child.lua_get([[TaskManager.get_task_by_path(...)]], { blocked_path })
@@ -150,6 +164,7 @@ T['calculate_urgency']['increases urgency for tasks blocking others'] = function
 
   -- Create blocking task
   local blocking_path = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Blocking Task',
     status = 'open',
     priority = 'normal',
@@ -157,17 +172,20 @@ T['calculate_urgency']['increases urgency for tasks blocking others'] = function
 
   -- Create two blocked tasks
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Blocked Task 1',
     status = 'open',
     blockedBy = { blocking_path },
   })
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Blocked Task 2',
     status = 'open',
     blockedBy = { blocking_path },
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local blocking_task = child.lua_get([[TaskManager.get_task_by_path(...)]], { blocking_path })
 
@@ -185,23 +203,27 @@ T['sort_by_urgency']['sorts tasks by urgency descending'] = function()
   local vault_path = helpers.create_test_vault(child)
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Low Urgency',
     status = 'open',
     priority = 'low',
   })
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'High Urgency',
     status = 'open',
     priority = 'high',
   })
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Medium Urgency',
     status = 'open',
     priority = 'normal',
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local tasks = child.lua_get([[TaskManager.get_tasks()]])
   local sorted = child.lua_get([[Urgency.sort_by_urgency(...)]], { tasks })
@@ -221,20 +243,24 @@ T['hide_completed']['filters out completed tasks when enabled'] = function()
   local vault_path = helpers.create_test_vault(child)
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Open Task',
     status = 'open',
   })
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Done Task',
     status = 'done',
   })
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'In Progress Task',
     status = 'in-progress',
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
 
   -- With hide_completed = true (default), should only get non-completed tasks
@@ -260,15 +286,18 @@ T['hide_completed']['includes completed tasks when filtering by status=done'] = 
   local vault_path = helpers.create_test_vault(child)
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Open Task',
     status = 'open',
   })
 
   helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Done Task',
     status = 'done',
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
 
   -- When explicitly filtering for status=done, should show completed tasks
@@ -288,11 +317,13 @@ T['urgency_updates']['recalculates urgency on task update'] = function()
   local vault_path = helpers.create_test_vault(child)
 
   local filepath = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Test Task',
     status = 'open',
     priority = 'normal',
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
   local initial_urgency = task.urgency
@@ -313,11 +344,13 @@ T['urgency_updates']['recalculates urgency when task becomes in-progress'] = fun
   local vault_path = helpers.create_test_vault(child)
 
   local filepath = helpers.create_test_task(child, vault_path, {
+    type = 'task',
     title = 'Test Task',
     status = 'open',
     priority = 'normal',
   })
 
+  child.lua(string.format([[Config.options.vault_path = '%s']], vault_path))
   child.lua([[TaskManager.scan_vault()]])
   local task = child.lua_get([[TaskManager.get_task_by_path(...)]], { filepath })
   local initial_urgency = task.urgency

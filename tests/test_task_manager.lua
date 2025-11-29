@@ -26,17 +26,19 @@ T['create_task_object'] = new_set()
 
 T['create_task_object']['handles vim.NIL values'] = function()
   -- This is the CRITICAL test for the bug fix
-  local result = child.lua_get([[
+  child.lua([[
     -- Simulate frontmatter with vim.NIL values (what YAML parser returns for null)
-    local frontmatter = {
+    _G.test_frontmatter = {
       title = 'Test Task',
       status = 'open',
       due = vim.NIL,  -- This is what causes the concatenation bug
       priority = vim.NIL,
       scheduled = vim.NIL,
     }
-    return TaskManager.create_task_object('/test.md', frontmatter, 'body')
+    _G.test_result = TaskManager.create_task_object('/test.md', _G.test_frontmatter, 'body')
   ]])
+
+  local result = child.lua_get("_G.test_result")
 
   eq(result.title, 'Test Task')
   eq(result.status, 'open')
@@ -46,10 +48,12 @@ T['create_task_object']['handles vim.NIL values'] = function()
 end
 
 T['create_task_object']['uses correct defaults'] = function()
-  local result = child.lua_get([[
-    local frontmatter = { title = 'Minimal Task' }
-    return TaskManager.create_task_object('/test.md', frontmatter, '')
+  child.lua([[
+    _G.test_frontmatter = { title = 'Minimal Task' }
+    _G.test_result = TaskManager.create_task_object('/test.md', _G.test_frontmatter, '')
   ]])
+
+  local result = child.lua_get("_G.test_result")
 
   eq(result.title, 'Minimal Task')
   eq(result.status, 'open')  -- default
@@ -84,8 +88,8 @@ T['create_task_object']['converts string arrays to tables'] = function()
 end
 
 T['create_task_object']['preserves all frontmatter fields'] = function()
-  local result = child.lua_get([=[
-    local frontmatter = {
+  child.lua([=[
+    _G.test_frontmatter = {
       title = 'Complete Task',
       status = 'in-progress',
       priority = 'high',
@@ -97,8 +101,10 @@ T['create_task_object']['preserves all frontmatter fields'] = function()
       timeEstimate = 120,
       dateCreated = '2025-01-01T00:00:00Z',
     }
-    return TaskManager.create_task_object('/test.md', frontmatter, 'Task body')
+    _G.test_result = TaskManager.create_task_object('/test.md', _G.test_frontmatter, 'Task body')
   ]=])
+
+  local result = child.lua_get("_G.test_result")
 
   eq(result.title, 'Complete Task')
   eq(result.status, 'in-progress')
@@ -179,21 +185,21 @@ end
 T['calculate_total_time'] = new_set()
 
 T['calculate_total_time']['calculates total from entries'] = function()
-  local result = child.lua_get([[
-    local entries = {
+  child.lua([[
+    _G.test_entries = {
       { startTime = '2025-01-15T10:00:00Z', endTime = '2025-01-15T11:00:00Z', duration = 60 },
       { startTime = '2025-01-15T14:00:00Z', endTime = '2025-01-15T14:30:00Z', duration = 30 },
     }
-    return TaskManager.calculate_total_time(entries)
+    _G.test_result = TaskManager.calculate_total_time(_G.test_entries)
   ]])
+
+  local result = child.lua_get("_G.test_result")
 
   eq(result, 90) -- 60 + 30 minutes
 end
 
 T['calculate_total_time']['handles empty entries'] = function()
-  local result = child.lua_get([[
-    return TaskManager.calculate_total_time({})
-  ]])
+  local result = child.lua_get("TaskManager.calculate_total_time({})")
 
   eq(result, 0)
 end
@@ -203,9 +209,7 @@ T['loading_state_tracking'] = new_set()
 
 T['loading_state_tracking']['is_loaded is false initially'] = function()
   -- Test that is_loaded starts as false before any scan
-  local is_loaded = child.lua_get([[
-    return TaskManager.is_loaded
-  ]])
+  local is_loaded = child.lua_get("TaskManager.is_loaded")
 
   eq(is_loaded, false)
 end
@@ -223,7 +227,7 @@ T['loading_state_tracking']['is_loaded becomes true after scan_vault'] = functio
     TaskManager.scan_vault()
   ]], vault_path))
 
-  local is_loaded = child.lua_get([[return TaskManager.is_loaded]])
+  local is_loaded = child.lua_get("TaskManager.is_loaded")
   eq(is_loaded, true)
 
   helpers.cleanup_vault(child, vault_path)
@@ -254,7 +258,7 @@ T['loading_state_tracking']['is_loaded set by fast cache path'] = function()
   -- Second scan should use fast cache path
   child.lua([[TaskManager.scan_vault()]])
 
-  local is_loaded = child.lua_get([[return TaskManager.is_loaded]])
+  local is_loaded = child.lua_get("TaskManager.is_loaded")
   eq(is_loaded, true)
 
   helpers.cleanup_vault(child, vault_path)
@@ -275,7 +279,7 @@ T['loading_state_tracking']['is_loaded set by slow validation path'] = function(
     TaskManager.scan_vault()
   ]], vault_path))
 
-  local is_loaded = child.lua_get([[return TaskManager.is_loaded]])
+  local is_loaded = child.lua_get("TaskManager.is_loaded")
   eq(is_loaded, true)
 
   helpers.cleanup_vault(child, vault_path)
@@ -300,8 +304,8 @@ T['loading_state_tracking']['scan_vault called multiple times maintains state'] 
     SECOND_LOADED = TaskManager.is_loaded
   ]], vault_path))
 
-  local first_loaded = child.lua_get([[return FIRST_LOADED]])
-  local second_loaded = child.lua_get([[return SECOND_LOADED]])
+  local first_loaded = child.lua_get("FIRST_LOADED")
+  local second_loaded = child.lua_get("SECOND_LOADED")
 
   eq(first_loaded, true)
   eq(second_loaded, true)

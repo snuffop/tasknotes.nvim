@@ -12,10 +12,8 @@ local T = new_set({
       child.setup()
 
       -- Check if telescope is available
-      local has_telescope = child.lua_get([[
-        local ok = pcall(require, 'telescope')
-        return ok
-      ]])
+      child.lua([[_G.has_telescope = pcall(require, 'telescope')]])
+      local has_telescope = child.lua_get("_G.has_telescope")
 
       if not has_telescope then
         MiniTest.skip('Telescope not available')
@@ -40,9 +38,9 @@ T['entry_maker_safe_string'] = new_set()
 
 T['entry_maker_safe_string']['handles nil values without error'] = function()
   -- This tests the scenario where values are explicitly nil
-  local success = child.lua_get([[
+  child.lua([[
     -- Simulate a task with nil values
-    local task = {
+    _G.test_task = {
       path = '/test.md',
       title = 'Test Task',
       status = 'open',
@@ -55,7 +53,7 @@ T['entry_maker_safe_string']['handles nil values without error'] = function()
 
     -- Test that we can safely concatenate these values
     -- (this is what happens in make_entry's ordinal field)
-    local ok, result = pcall(function()
+    _G.test_success, _G.test_result = pcall(function()
       -- This is the safe_string logic from telescope.lua
       local function safe_string(value)
         if value == nil or value == vim.NIL then
@@ -64,24 +62,23 @@ T['entry_maker_safe_string']['handles nil values without error'] = function()
         return tostring(value)
       end
 
-      local ordinal = safe_string(task.title) .. ' ' ..
-                     safe_string(task.status) .. ' ' ..
-                     safe_string(task.due)
+      local ordinal = safe_string(_G.test_task.title) .. ' ' ..
+                     safe_string(_G.test_task.status) .. ' ' ..
+                     safe_string(_G.test_task.due)
       return ordinal
     end)
-
-    return ok and result ~= nil
   ]])
 
+  local success = child.lua_get("_G.test_success and _G.test_result ~= nil")
   eq(success, true)
 end
 
 T['entry_maker_safe_string']['handles vim.NIL values without error (REGRESSION TEST)'] = function()
   -- This is the EXACT bug scenario that caused the error:
   -- "attempt to concatenate a userdata value"
-  local success = child.lua_get([[
+  child.lua([[
     -- Simulate a task with vim.NIL values (from YAML parser)
-    local task = {
+    _G.test_task = {
       path = '/test.md',
       title = 'Test Task',
       status = vim.NIL,  -- vim.NIL from YAML parser (the bug!)
@@ -93,7 +90,7 @@ T['entry_maker_safe_string']['handles vim.NIL values without error (REGRESSION T
     }
 
     -- This should NOT crash after our fix
-    local ok, result = pcall(function()
+    _G.test_success, _G.test_result = pcall(function()
       -- This is the safe_string logic that fixes the bug
       local function safe_string(value)
         if value == nil or value == vim.NIL then
@@ -104,22 +101,21 @@ T['entry_maker_safe_string']['handles vim.NIL values without error (REGRESSION T
 
       -- This concatenation previously failed with:
       -- "attempt to concatenate a userdata value"
-      local ordinal = safe_string(task.title) .. ' ' ..
-                     safe_string(task.status) .. ' ' ..
-                     safe_string(task.due)
+      local ordinal = safe_string(_G.test_task.title) .. ' ' ..
+                     safe_string(_G.test_task.status) .. ' ' ..
+                     safe_string(_G.test_task.due)
 
       return ordinal
     end)
-
-    return ok and result ~= nil
   ]])
 
+  local success = child.lua_get("_G.test_success and _G.test_result ~= nil")
   eq(success, true)
 end
 
 T['entry_maker_safe_string']['handles mixed nil and vim.NIL values'] = function()
-  local success = child.lua_get([[
-    local task = {
+  child.lua([[
+    _G.test_task = {
       path = '/test.md',
       title = 'Test Task',   -- string
       status = nil,          -- nil
@@ -130,7 +126,7 @@ T['entry_maker_safe_string']['handles mixed nil and vim.NIL values'] = function(
       tags = {},
     }
 
-    local ok, result = pcall(function()
+    _G.test_success, _G.test_result = pcall(function()
       local function safe_string(value)
         if value == nil or value == vim.NIL then
           return ""
@@ -138,18 +134,17 @@ T['entry_maker_safe_string']['handles mixed nil and vim.NIL values'] = function(
         return tostring(value)
       end
 
-      local ordinal = safe_string(task.title) .. ' ' ..
-                     safe_string(task.status) .. ' ' ..
-                     safe_string(task.due) .. ' ' ..
-                     safe_string(task.priority)
+      local ordinal = safe_string(_G.test_task.title) .. ' ' ..
+                     safe_string(_G.test_task.status) .. ' ' ..
+                     safe_string(_G.test_task.due) .. ' ' ..
+                     safe_string(_G.test_task.priority)
 
       -- Should produce: "Test Task   high"
       return ordinal
     end)
-
-    return ok and result:match('Test Task') ~= nil
   ]])
 
+  local success = child.lua_get("_G.test_success and _G.test_result:match('Test Task') ~= nil")
   eq(success, true)
 end
 
@@ -157,8 +152,8 @@ end
 T['display_function'] = new_set()
 
 T['display_function']['handles nil due date'] = function()
-  local success = child.lua_get([[
-    local task = {
+  child.lua([[
+    _G.test_task = {
       path = '/test.md',
       title = 'Test Task',
       status = 'open',
@@ -169,7 +164,7 @@ T['display_function']['handles nil due date'] = function()
       tags = {},
     }
 
-    local ok, err = pcall(function()
+    _G.test_success, _G.test_err = pcall(function()
       -- Test safe_string for due date formatting (used in make_display)
       local function safe_string(value)
         if value == nil or value == vim.NIL then
@@ -178,21 +173,20 @@ T['display_function']['handles nil due date'] = function()
         return tostring(value)
       end
 
-      local due_str = safe_string(task.due)
-      local title_str = safe_string(task.title)
+      local due_str = safe_string(_G.test_task.due)
+      local title_str = safe_string(_G.test_task.title)
 
       return due_str == "" and title_str == "Test Task"
     end)
-
-    return ok
   ]])
 
+  local success = child.lua_get("_G.test_success")
   eq(success, true)
 end
 
 T['display_function']['handles vim.NIL due date'] = function()
-  local success = child.lua_get([[
-    local task = {
+  child.lua([[
+    _G.test_task = {
       path = '/test.md',
       title = 'Test Task',
       status = 'open',
@@ -203,7 +197,7 @@ T['display_function']['handles vim.NIL due date'] = function()
       tags = {},
     }
 
-    local ok, err = pcall(function()
+    _G.test_success, _G.test_err = pcall(function()
       local function safe_string(value)
         if value == nil or value == vim.NIL then
           return ""
@@ -211,13 +205,12 @@ T['display_function']['handles vim.NIL due date'] = function()
         return tostring(value)
       end
 
-      local due_str = safe_string(task.due)
+      local due_str = safe_string(_G.test_task.due)
       return due_str == ""
     end)
-
-    return ok
   ]])
 
+  local success = child.lua_get("_G.test_success")
   eq(success, true)
 end
 
@@ -226,21 +219,21 @@ T['full_integration'] = new_set()
 
 T['full_integration']['task with nil values can be processed'] = function()
   -- This tests the full pipeline: task creation -> telescope entry
-  local success = child.lua_get([[
+  child.lua([[
     -- Create a task object with vim.NIL values (simulating YAML parser output)
-    local frontmatter = {
+    _G.test_frontmatter = {
       title = 'Integration Test',
       status = vim.NIL,
       priority = vim.NIL,
       due = vim.NIL,
     }
 
-    local task = TaskManager.create_task_object('/test.md', frontmatter, '')
+    _G.test_task = TaskManager.create_task_object('/test.md', _G.test_frontmatter, '')
 
     -- After create_task_object, all vim.NIL should be normalized
     -- This is the defense-in-depth fix in task_manager.lua
 
-    local ok, err = pcall(function()
+    _G.test_success, _G.test_err = pcall(function()
       -- Simulate what happens in telescope's make_entry
       local function safe_string(value)
         if value == nil or value == vim.NIL then
@@ -249,16 +242,15 @@ T['full_integration']['task with nil values can be processed'] = function()
         return tostring(value)
       end
 
-      local ordinal = safe_string(task.title) .. ' ' ..
-                     safe_string(task.status) .. ' ' ..
-                     safe_string(task.due)
+      local ordinal = safe_string(_G.test_task.title) .. ' ' ..
+                     safe_string(_G.test_task.status) .. ' ' ..
+                     safe_string(_G.test_task.due)
 
       return ordinal ~= nil
     end)
-
-    return ok
   ]])
 
+  local success = child.lua_get("_G.test_success")
   eq(success, true)
 end
 
@@ -285,11 +277,11 @@ T['browse_loading_guard']['browse_tasks triggers scan if not loaded'] = function
   ]], vault_path))
 
   -- Verify tasks are not loaded yet
-  local tasks_before = child.lua_get([[return #TaskManager.tasks]])
+  local tasks_before = child.lua_get("#TaskManager.tasks")
   eq(tasks_before, 0)
 
   -- Verify is_loaded is false
-  local loaded_before = child.lua_get([[return TaskManager.is_loaded]])
+  local loaded_before = child.lua_get("TaskManager.is_loaded")
   eq(loaded_before, false)
 
   -- Call browse_tasks - it should trigger scan_vault automatically
@@ -304,8 +296,8 @@ T['browse_loading_guard']['browse_tasks triggers scan if not loaded'] = function
     LOADED_AFTER_GUARD = TaskManager.is_loaded
   ]])
 
-  local tasks_after = child.lua_get([[return TASKS_AFTER_GUARD]])
-  local loaded_after = child.lua_get([[return LOADED_AFTER_GUARD]])
+  local tasks_after = child.lua_get("TASKS_AFTER_GUARD")
+  local loaded_after = child.lua_get("LOADED_AFTER_GUARD")
 
   -- After guard, tasks should be loaded
   eq(tasks_after, 1)  -- Should find the task
@@ -330,11 +322,11 @@ T['browse_loading_guard']['browse_tasks works when already loaded'] = function()
   ]], vault_path))
 
   -- Verify tasks are loaded
-  local tasks_before = child.lua_get([[return #TaskManager.tasks]])
+  local tasks_before = child.lua_get("#TaskManager.tasks")
   eq(tasks_before, 1)
 
   -- Verify is_loaded is true
-  local loaded_before = child.lua_get([[return TaskManager.is_loaded]])
+  local loaded_before = child.lua_get("TaskManager.is_loaded")
   eq(loaded_before, true)
 
   -- Call browse_tasks guard - should NOT trigger another scan
@@ -349,8 +341,8 @@ T['browse_loading_guard']['browse_tasks works when already loaded'] = function()
     TASKS_AFTER_GUARD = #TaskManager.tasks
   ]])
 
-  local scan_called = child.lua_get([[return SCAN_CALLED]])
-  local tasks_after = child.lua_get([[return TASKS_AFTER_GUARD]])
+  local scan_called = child.lua_get("SCAN_CALLED")
+  local tasks_after = child.lua_get("TASKS_AFTER_GUARD")
 
   -- Guard should NOT have called scan again
   eq(scan_called, false)
