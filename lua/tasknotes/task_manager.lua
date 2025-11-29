@@ -357,7 +357,16 @@ function M.get_tasks(filter)
     local matches = true
 
     -- Filter out completed tasks if hide_completed is enabled
-    if hide_completed then
+    -- BUT: Don't filter if user explicitly requested a completed status
+    local status_is_completed_filter = false
+    if filter and filter.status then
+      local status_def = config.get_status(filter.status)
+      if status_def.is_completed then
+        status_is_completed_filter = true
+      end
+    end
+
+    if hide_completed and not status_is_completed_filter then
       local status_def = config.get_status(task.status)
       if status_def.is_completed then
         matches = false
@@ -483,6 +492,38 @@ function M.create_task(task_data)
   return task
 end
 
+-- Helper function to update cache file
+local function update_cache_file(filepath, task)
+  local opts = config.get()
+  if not opts.cache.enabled then
+    return
+  end
+
+  local vault_path = opts.vault_path
+  local cache_path = get_cache_path()
+
+  -- Load existing cache
+  local persistent_cache = cache_module.load(cache_path)
+  if not persistent_cache then
+    persistent_cache = cache_module.new(vault_path)
+  end
+
+  -- Update cache entry
+  if task then
+    local mtime = cache_module.get_mtime(filepath)
+    persistent_cache.tasks[filepath] = {
+      mtime = mtime,
+      task = task,
+    }
+  else
+    -- Remove from cache
+    persistent_cache.tasks[filepath] = nil
+  end
+
+  -- Save cache
+  cache_module.save(cache_path, persistent_cache, vault_path)
+end
+
 -- Update an existing task
 function M.update_task(filepath, updates)
   local parsed = parser.parse_file(filepath)
@@ -561,38 +602,6 @@ function M.delete_task(filepath)
 
   vim.notify("Deleted task", vim.log.levels.INFO)
   return true
-end
-
--- Helper function to update cache file
-local function update_cache_file(filepath, task)
-  local opts = config.get()
-  if not opts.cache.enabled then
-    return
-  end
-
-  local vault_path = opts.vault_path
-  local cache_path = get_cache_path()
-
-  -- Load existing cache
-  local persistent_cache = cache_module.load(cache_path)
-  if not persistent_cache then
-    persistent_cache = cache_module.new(vault_path)
-  end
-
-  -- Update cache entry
-  if task then
-    local mtime = cache_module.get_mtime(filepath)
-    persistent_cache.tasks[filepath] = {
-      mtime = mtime,
-      task = task,
-    }
-  else
-    -- Remove from cache
-    persistent_cache.tasks[filepath] = nil
-  end
-
-  -- Save cache
-  cache_module.save(cache_path, persistent_cache, vault_path)
 end
 
 -- Refresh a single task from disk
@@ -871,7 +880,7 @@ function M.validate_dependencies(task, new_dependencies)
       if dep_task then
         local has_circular, err = has_cycle(dep_task.path, dep_task.blockedBy or {})
         if has_circular then
-          return false, err
+          return true, err  -- Propagate cycle detection up the call stack
         end
       end
     end
