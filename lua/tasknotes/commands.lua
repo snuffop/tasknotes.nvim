@@ -22,4 +22,108 @@ end
 -- Note: Custom view creation/editing is not supported for Bases views
 -- Views must be created/edited in Obsidian or by manually editing .base files
 
+-- Debug command to show ignore configuration
+function M.debug_ignore_command()
+	local config = require("tasknotes.config")
+	local opts = config.get()
+
+	local lines = {
+		"=== TaskNotes Ignore Configuration Debug ===",
+		"",
+		"Vault Path:",
+		"  " .. opts.vault_path,
+		"",
+		"Obsidian Integration:",
+		"  enabled = " .. tostring(opts.obsidian.enabled),
+	}
+
+	if opts.obsidian.enabled then
+		table.insert(lines, "  vault_path = " .. (opts.obsidian.vault_path or "not set"))
+
+		-- Try to check if Obsidian settings file exists
+		local obsidian_vault = vim.fn.expand(opts.obsidian.vault_path)
+		local settings_path = obsidian_vault .. "/.obsidian/plugins/tasknotes/data.json"
+		local exists = vim.fn.filereadable(settings_path) == 1
+		table.insert(lines, "  settings file exists = " .. tostring(exists))
+
+		if exists then
+			table.insert(lines, "  settings file: " .. settings_path)
+		end
+	end
+
+	table.insert(lines, "")
+	table.insert(lines, "Ignore Directories (from config.get_ignore_dirs()):")
+
+	local ignore_dirs = config.get_ignore_dirs()
+	if #ignore_dirs == 0 then
+		table.insert(lines, "  (none - all directories will be scanned)")
+	else
+		for _, dir in ipairs(ignore_dirs) do
+			table.insert(lines, "  - " .. dir)
+		end
+	end
+
+	table.insert(lines, "")
+	table.insert(lines, "Manual Override (config.ignore_dirs):")
+	if opts.ignore_dirs == nil then
+		table.insert(lines, "  nil (using defaults + Obsidian settings)")
+	elseif #opts.ignore_dirs == 0 then
+		table.insert(lines, "  {} (empty array - ignores disabled)")
+	else
+		for _, dir in ipairs(opts.ignore_dirs) do
+			table.insert(lines, "  - " .. dir)
+		end
+	end
+
+	table.insert(lines, "")
+	table.insert(lines, "Sample Task Paths:")
+	local task_manager = require("tasknotes.task_manager")
+	local sample_count = 0
+	for _, task in ipairs(task_manager.tasks) do
+		if sample_count < 3 then
+			table.insert(lines, "  " .. task.path)
+			sample_count = sample_count + 1
+		else
+			break
+		end
+	end
+	if sample_count == 0 then
+		table.insert(lines, "  (no tasks loaded)")
+	end
+
+	table.insert(lines, "")
+	table.insert(lines, "=== Troubleshooting Steps ===")
+	table.insert(lines, "")
+
+	if not opts.obsidian.enabled then
+		table.insert(lines, "⚠️  Obsidian integration is NOT enabled!")
+		table.insert(lines, "   Your excludedFolders setting in Obsidian won't be used.")
+		table.insert(lines, "")
+		table.insert(lines, "Fix: Add to your config:")
+		table.insert(lines, "  obsidian = {")
+		table.insert(lines, "    enabled = true,")
+		table.insert(lines, "    vault_path = '~/path/to/your/obsidian/vault',")
+		table.insert(lines, "  }")
+	elseif opts.obsidian.enabled and vim.fn.filereadable(vim.fn.expand(opts.obsidian.vault_path) .. "/.obsidian/plugins/tasknotes/data.json") == 0 then
+		table.insert(lines, "⚠️  Obsidian settings file not found!")
+		table.insert(lines, "   Expected at: " .. vim.fn.expand(opts.obsidian.vault_path) .. "/.obsidian/plugins/tasknotes/data.json")
+	end
+
+	table.insert(lines, "")
+	table.insert(lines, "To apply changes:")
+	table.insert(lines, "  1. Update your config")
+	table.insert(lines, "  2. Run :TaskNotesClearCache")
+	table.insert(lines, "  3. Restart Neovim or run :TaskNotesRescan")
+
+	-- Create a buffer to display the info
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.api.nvim_buf_set_option(buf, 'modifiable', false)
+	vim.api.nvim_buf_set_option(buf, 'filetype', 'tasknotes-debug')
+
+	-- Open in a split
+	vim.cmd('vsplit')
+	vim.api.nvim_win_set_buf(0, buf)
+end
+
 return M

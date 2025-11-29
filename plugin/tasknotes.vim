@@ -34,3 +34,6 @@ command! TaskNotesGotoBlockedTasks lua require('tasknotes').goto_blocked_tasks()
 " View commands (read-only - views loaded from TaskNotes/Views/*.base files)
 command! -nargs=? TaskNotesView lua require('tasknotes.commands').view_command(<f-args>)
 command! TaskNotesListViews lua require('tasknotes').list_views()
+
+" Debug commands
+command! TaskNotesDebugIgnore lua require('tasknotes.commands').debug_ignore_command()

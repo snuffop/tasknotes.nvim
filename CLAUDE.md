@@ -87,6 +87,7 @@ Task management plugin for Neovim using [TaskNotes](https://github.com/joshklein
 
 - Exposes Vim commands
 - `:TaskNotesBrowse`, `:TaskNotesNew`, `:TaskNotesView`, etc.
+- `:TaskNotesDebugIgnore` - Debug ignore directory configuration
 
 ## Key Features
 
@@ -373,6 +374,53 @@ dateModified: 2025-11-25T10:30:00Z
 ---
 Task description goes here.
 ```
+
+## Troubleshooting
+
+### Templates or unwanted tasks showing up
+
+If you see template files or tasks from excluded directories:
+
+1. **Run the debug command:**
+
+   ```vim
+   :TaskNotesDebugIgnore
+   ```
+
+   This will show:
+
+   - Current vault path
+   - Whether Obsidian integration is enabled
+   - What directories are being ignored
+   - Sample task paths
+   - Specific troubleshooting steps
+
+2. **Enable Obsidian integration** (if not already):
+
+   ```lua
+   require("tasknotes").setup({
+     obsidian = {
+       enabled = true,
+       vault_path = "~/path/to/your/obsidian/vault",
+     },
+   })
+   ```
+
+3. **Clear cache and rescan:**
+
+   ```vim
+   :TaskNotesClearCache
+   :TaskNotesRescan
+   ```
+
+   Or just restart Neovim
+
+4. **Manual override** (if Obsidian integration can't be used):
+   ```lua
+   require("tasknotes").setup({
+     ignore_dirs = { "04_Archive", "05_Attachments", "06_Metadata", "OLD_VAULT" },
+   })
+   ```
 
 ## Common Operations
 
