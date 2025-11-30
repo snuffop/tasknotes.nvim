@@ -158,7 +158,7 @@ Exclude directories from vault scanning with a three-tier configuration system:
 
 **Priority:** Neovim config > Obsidian settings > defaults
 
-**Defaults:** `.obsidian`, `.trash`, `.git` (always applied unless overridden)
+**Defaults:** `.obsidian`, `.trash`, `.git`, `.claude` (always applied unless overridden)
 
 **Configuration:**
 
@@ -166,7 +166,7 @@ Exclude directories from vault scanning with a three-tier configuration system:
 -- Use defaults only
 require("tasknotes").setup({
   vault_path = "~/vault/Tasks",
-  -- ignore_dirs not specified, uses defaults: .obsidian, .trash, .git
+  -- ignore_dirs not specified, uses defaults: .obsidian, .trash, .git, .claude
 })
 
 -- Extend with Obsidian settings
@@ -274,7 +274,7 @@ urgency_coefficients = {
 
 **Three-tier priority system:**
 
-1. **Defaults** (applied unless overridden): `{ ".obsidian", ".trash", ".git" }`
+1. **Defaults** (applied unless overridden): `{ ".obsidian", ".trash", ".git", ".claude" }`
 2. **Obsidian settings**: Read from `.obsidian/plugins/tasknotes/data.json` field `excludedFolders` (comma-separated string)
 3. **Neovim config**: `ignore_dirs` option (complete override when set)
 

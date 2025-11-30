@@ -27,7 +27,8 @@ T['get_ignore_dirs']['returns defaults when nothing configured'] = function()
   eq(vim.tbl_contains(ignore_dirs, ".obsidian"), true)
   eq(vim.tbl_contains(ignore_dirs, ".trash"), true)
   eq(vim.tbl_contains(ignore_dirs, ".git"), true)
-  eq(#ignore_dirs, 3)
+  eq(vim.tbl_contains(ignore_dirs, ".claude"), true)
+  eq(#ignore_dirs, 4)
 end
 
 T['get_ignore_dirs']['merges Obsidian settings with defaults'] = function()
@@ -44,9 +45,10 @@ T['get_ignore_dirs']['merges Obsidian settings with defaults'] = function()
   eq(vim.tbl_contains(ignore_dirs, ".obsidian"), true)
   eq(vim.tbl_contains(ignore_dirs, ".trash"), true)
   eq(vim.tbl_contains(ignore_dirs, ".git"), true)
+  eq(vim.tbl_contains(ignore_dirs, ".claude"), true)
   eq(vim.tbl_contains(ignore_dirs, "Archive"), true)
   eq(vim.tbl_contains(ignore_dirs, "Templates"), true)
-  eq(#ignore_dirs, 5)
+  eq(#ignore_dirs, 6)
 end
 
 T['get_ignore_dirs']['Neovim config completely overrides'] = function()
@@ -284,6 +286,7 @@ T['cache_new']['includes defaults when no config'] = function()
   eq(vim.tbl_contains(ignore_dirs, ".obsidian"), true)
   eq(vim.tbl_contains(ignore_dirs, ".trash"), true)
   eq(vim.tbl_contains(ignore_dirs, ".git"), true)
+  eq(vim.tbl_contains(ignore_dirs, ".claude"), true)
 end
 
 return T

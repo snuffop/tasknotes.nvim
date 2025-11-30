@@ -1,7 +1,7 @@
 local M = {}
 
 -- Default directories to ignore during vault scanning
-M.DEFAULT_IGNORE_DIRS = { ".obsidian", ".trash", ".git" }
+M.DEFAULT_IGNORE_DIRS = { ".obsidian", ".trash", ".git", ".claude" }
 
 -- Default configuration
 local defaults = {

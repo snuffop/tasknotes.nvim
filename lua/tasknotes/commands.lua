@@ -91,6 +91,47 @@ function M.debug_ignore_command()
 		table.insert(lines, "  (no tasks loaded)")
 	end
 
+	-- Look for suspected template files
+	table.insert(lines, "")
+	table.insert(lines, "=== Suspected Template Files ===")
+	table.insert(lines, "")
+
+	local template_patterns = {
+		"{.*}",           -- {Task title...}
+		"<.*>",           -- <describe...>
+		"%[.*%]",         -- [placeholder]
+		"^TODO$",         -- TODO
+		"^BUG$",          -- BUG
+		"^FEATURE$",      -- FEATURE
+		"template",       -- Contains "template"
+	}
+
+	local found_templates = {}
+	for _, task in ipairs(task_manager.tasks) do
+		for _, pattern in ipairs(template_patterns) do
+			if task.title and task.title:match(pattern) then
+				table.insert(found_templates, {
+					path = task.path,
+					title = task.title,
+				})
+				break
+			end
+		end
+	end
+
+	if #found_templates > 0 then
+		table.insert(lines, "Found " .. #found_templates .. " suspected template files:")
+		table.insert(lines, "")
+		for _, tmpl in ipairs(found_templates) do
+			table.insert(lines, "  File: " .. tmpl.path)
+			table.insert(lines, "  Title: " .. tmpl.title)
+			table.insert(lines, "")
+		end
+	else
+		table.insert(lines, "No suspected template files found.")
+		table.insert(lines, "")
+	end
+
 	table.insert(lines, "")
 	table.insert(lines, "=== Troubleshooting Steps ===")
 	table.insert(lines, "")
