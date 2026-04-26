@@ -131,9 +131,10 @@ local defaults = {
   },
 
   -- Views configuration (Obsidian Bases)
-  -- Views are loaded from TaskNotes/Views/*.base files in your vault
-  -- Views must be created/edited in Obsidian or by manually editing .base files
+  -- By default TaskNotes looks in <vault_path>/Views, with fallback support for
+  -- older TaskNotes/Views layouts. Set views.path to override explicitly.
   views = {
+    path = nil,
     -- View-related keymaps
     keymaps = {
       view_selector = "<C-v>", -- In picker: open view selector
@@ -197,6 +198,34 @@ end
 -- Get field mapping
 function M.get_field(internal_name)
   return M.options.field_mapping[internal_name] or internal_name
+end
+
+-- Resolve the directory that contains .base view files
+function M.get_views_dir()
+  local opts = M.options
+  local views = opts.views or {}
+
+  if type(views.path) == "string" and views.path ~= "" then
+    return vim.fn.expand(views.path)
+  end
+
+  local candidates = {
+    opts.vault_path .. "/Views",
+    opts.vault_path .. "/TaskNotes/Views",
+  }
+
+  if opts.obsidian and opts.obsidian.vault_path then
+    local obsidian_root = vim.fn.expand(opts.obsidian.vault_path)
+    table.insert(candidates, obsidian_root .. "/TaskNotes/Views")
+  end
+
+  for _, candidate in ipairs(candidates) do
+    if vim.fn.isdirectory(candidate) == 1 then
+      return candidate
+    end
+  end
+
+  return candidates[1]
 end
 
 -- Get ignore directories with priority logic

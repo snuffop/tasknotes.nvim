@@ -405,6 +405,10 @@ function M.get_tasks(filter)
         end
       end
 
+      if filter.predicate and not filter.predicate(task) then
+        matches = false
+      end
+
       if filter.status and task.status ~= filter.status then
         matches = false
       end

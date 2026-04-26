@@ -20,7 +20,7 @@ local T = new_set({
 T['validate_vault_path'] = new_set()
 
 T['validate_vault_path']['detects vault move to different path'] = function()
-  child.lua([[_G.test_cache = {version = 2, vault_path = "/old/vault/path", tasks = {}, file_list = {}}]])
+  child.lua([[_G.test_cache = {version = 3, vault_path = "/old/vault/path", tasks = {}, file_list = {}}]])
   local valid = child.lua_get([[select(1, Cache.validate_vault_path(_G.test_cache, "/new/vault/path"))]])
   local message = child.lua_get([[select(2, Cache.validate_vault_path(_G.test_cache, "/new/vault/path"))]])
 
@@ -37,7 +37,7 @@ T['validate_vault_path']['accepts same vault path'] = function()
     Config = require('tasknotes.config')
     Config.setup({})
     local ignore_dirs = Config.get_ignore_dirs()
-    _G.test_cache = {version = 2, vault_path = ..., ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
+    _G.test_cache = {version = 3, vault_path = ..., ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
   ]], { vault_path })
   local valid = child.lua_get([[select(1, Cache.validate_vault_path(_G.test_cache, ...))]], { vault_path })
 
@@ -64,7 +64,7 @@ T['validate_vault_path']['normalizes paths with trailing slashes'] = function()
     Config = require('tasknotes.config')
     Config.setup({})
     local ignore_dirs = Config.get_ignore_dirs()
-    _G.test_cache = {version = 2, vault_path = ... .. "/", ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
+    _G.test_cache = {version = 3, vault_path = ... .. "/", ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
   ]], { vault_path })
   local valid = child.lua_get([[select(1, Cache.validate_vault_path(_G.test_cache, ...))]], { vault_path })
 
@@ -80,28 +80,28 @@ T['validate_vault_path']['handles tilde expansion'] = function()
     Config = require('tasknotes.config')
     Config.setup({})
     local ignore_dirs = Config.get_ignore_dirs()
-    _G.test_cache = {version = 2, vault_path = vim.fn.expand("~/vault"), ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
+    _G.test_cache = {version = 3, vault_path = vim.fn.expand("~/vault"), ignore_dirs = ignore_dirs, tasks = {}, file_list = {}}
   ]])
   local valid = child.lua_get([[select(1, Cache.validate_vault_path(_G.test_cache, "~/vault"))]])
 
   eq(valid, true)
 end
 
--- Test cache schema version 2
-T['cache_schema_v2'] = new_set()
+-- Test cache schema version 3
+T['cache_schema_v3'] = new_set()
 
-T['cache_schema_v2']['new() creates cache with vault_path'] = function()
+T['cache_schema_v3']['new() creates cache with vault_path'] = function()
   child.lua([[_G.new_cache = Cache.new("/test/vault/path")]])
   local version = child.lua_get([[_G.new_cache.version]])
   local has_vault_path = child.lua_get([[_G.new_cache.vault_path ~= nil]])
   local vault_path = child.lua_get([[_G.new_cache.vault_path]])
 
-  eq(version, 2)
+  eq(version, 3)
   eq(has_vault_path, true)
   eq(vault_path, "/test/vault/path")
 end
 
-T['cache_schema_v2']['save() accepts vault_path parameter'] = function()
+T['cache_schema_v3']['save() accepts vault_path parameter'] = function()
   local test_vault_path = "/test/vault/path"
   local cache_dir = child.lua_get([[vim.fn.stdpath("state") .. "/tasknotes_test"]])
 

@@ -93,6 +93,19 @@ contexts:
   eq(result.contexts[1], '@home')
 end
 
+T['parse_yaml_basic']['parses arrays correctly without yq'] = function()
+  local yaml = [[tags:
+  - task
+  - work
+contexts:
+  - "@home"]]
+
+  local result = child.lua_get([[Parser.parse_yaml_basic(...)]], { yaml })
+  eq(#result.tags, 2)
+  eq(result.tags[1], 'task')
+  eq(result.contexts[1], '@home')
+end
+
 T['parse_yaml']['parses nested objects'] = function()
   local yaml = [[timeEntries:
   - startTime: "2025-01-15T10:00:00Z"

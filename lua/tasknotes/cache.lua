@@ -1,7 +1,7 @@
 local M = {}
 
 -- Cache version for schema evolution
-local CACHE_VERSION = 2
+local CACHE_VERSION = 3
 
 -- Get file modification time
 local function get_mtime(filepath)

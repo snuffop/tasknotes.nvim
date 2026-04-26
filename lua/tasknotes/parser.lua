@@ -1,5 +1,40 @@
 local M = {}
 
+local function parse_scalar(value)
+  if value == nil then
+    return nil
+  end
+
+  value = value:gsub("^%s+", ""):gsub("%s+$", "")
+
+  if value == "" or value == "null" then
+    return nil
+  end
+
+  if value == "[]" then
+    return {}
+  end
+
+  local unquoted = value:match('^"(.-)"$') or value:match("^'(.-)'$")
+  if unquoted then
+    return unquoted
+  end
+
+  if value == "true" then
+    return true
+  end
+
+  if value == "false" then
+    return false
+  end
+
+  if value:match("^%-?%d+%.?%d*$") then
+    return tonumber(value)
+  end
+
+  return value
+end
+
 -- Split frontmatter and body from markdown content
 function M.split_frontmatter(content)
   -- Match YAML frontmatter between --- delimiters
@@ -40,72 +75,85 @@ end
 function M.parse_yaml_basic(yaml_str)
   local result = {}
   local lines = vim.split(yaml_str, "\n")
-  local current_key = nil
-  local current_list = nil
-  local in_multiline = false
+  local i = 1
 
-  for _, line in ipairs(lines) do
+  while i <= #lines do
+    local line = lines[i]
+
     -- Skip empty lines and comments
     if line:match("^%s*$") or line:match("^%s*#") then
-      goto continue
-    end
-
-    -- List item
-    if line:match("^%s*%-%s+") then
-      local value = line:match("^%s*%-%s+(.+)$")
-      if current_key and current_list then
-        -- Trim quotes if present
-        value = value:match('^"(.-)"$') or value:match("^'(.-)'$") or value
-        table.insert(current_list, value)
-      end
+      i = i + 1
       goto continue
     end
 
     -- Key-value pair
     local key, value = line:match("^([%w_]+):%s*(.*)$")
     if key then
-      current_key = key
-
-      if value == "" or value == "null" then
-        -- Empty value or null
-        result[key] = nil
-        current_list = nil
-      elseif value == "[]" then
-        -- Empty array
-        result[key] = {}
-        current_list = nil
-      else
-        -- Try to parse value
-        value = value:gsub("^%s+", ""):gsub("%s+$", "") -- trim
-
-        -- Remove quotes
-        local unquoted = value:match('^"(.-)"$') or value:match("^'(.-)'$")
-        if unquoted then
-          result[key] = unquoted
-          current_list = nil
-        -- Boolean
-        elseif value == "true" then
-          result[key] = true
-          current_list = nil
-        elseif value == "false" then
-          result[key] = false
-          current_list = nil
-        -- Number
-        elseif value:match("^%-?%d+%.?%d*$") then
-          result[key] = tonumber(value)
-          current_list = nil
-        -- Start of array (indicated by no value after colon)
-        elseif value == "" then
-          result[key] = {}
-          current_list = result[key]
-        else
-          -- String value
-          result[key] = value
-          current_list = nil
-        end
+      if value ~= "" then
+        result[key] = parse_scalar(value)
+        i = i + 1
+        goto continue
       end
+
+      local next_line = lines[i + 1]
+      if next_line and next_line:match("^%s*%-%s+") then
+        local list = {}
+        result[key] = list
+        i = i + 1
+
+        while i <= #lines do
+          local item_line = lines[i]
+          if item_line:match("^%s*$") or item_line:match("^%s*#") then
+            i = i + 1
+          else
+            local item_indent, item_value = item_line:match("^(%s*)%-%s+(.+)$")
+            if not item_value then
+              break
+            end
+
+            local item_key, item_scalar = item_value:match("^([%w_]+):%s*(.*)$")
+            if item_key then
+              local item = {}
+              item[item_key] = parse_scalar(item_scalar)
+              local object_indent = #item_indent
+              i = i + 1
+
+              while i <= #lines do
+                local continuation = lines[i]
+                if continuation:match("^%s*$") or continuation:match("^%s*#") then
+                  i = i + 1
+                else
+                  local continuation_indent = #(continuation:match("^(%s*)") or "")
+                  if continuation_indent <= object_indent then
+                    break
+                  end
+
+                  local nested_key, nested_value = continuation:match("^%s+([%w_]+):%s*(.*)$")
+                  if not nested_key then
+                    break
+                  end
+
+                  item[nested_key] = parse_scalar(nested_value)
+                  i = i + 1
+                end
+              end
+
+              table.insert(list, item)
+            else
+              table.insert(list, parse_scalar(item_value))
+              i = i + 1
+            end
+          end
+        end
+      else
+        result[key] = nil
+        i = i + 1
+      end
+
       goto continue
     end
+
+    i = i + 1
 
     ::continue::
   end

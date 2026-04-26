@@ -167,7 +167,7 @@ T['cache_invalidation']['validates when ignore_dirs matches'] = function()
 
   child.lua([[
     _G.test_cache = {
-      version = 2,
+      version = 3,
       vault_path = "/test/vault",
       ignore_dirs = { "Archive" },
       tasks = {},
@@ -189,7 +189,7 @@ T['cache_invalidation']['invalidates when ignore_dirs changes'] = function()
 
   child.lua([[
     _G.test_cache = {
-      version = 2,
+      version = 3,
       vault_path = "/test/vault",
       ignore_dirs = { "Archive" },  -- Different from current config
       tasks = {},
@@ -215,7 +215,7 @@ T['cache_invalidation']['invalidates when ignore_dirs added'] = function()
 
   child.lua([[
     _G.test_cache = {
-      version = 2,
+      version = 3,
       vault_path = "/test/vault",
       ignore_dirs = { "Archive" },  -- Missing "Templates"
       tasks = {},
@@ -237,7 +237,7 @@ T['cache_invalidation']['handles missing ignore_dirs in old cache'] = function()
 
   child.lua([[
     _G.test_cache = {
-      version = 2,
+      version = 3,
       vault_path = "/test/vault",
       -- No ignore_dirs field (old cache format)
       tasks = {},

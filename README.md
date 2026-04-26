@@ -234,11 +234,11 @@ When browsing tasks with Snacks picker, the following actions are available:
 
 ## Views
 
-tasknotes.nvim integrates with **Obsidian Bases** for powerful, flexible task views. Views are defined in `.base` files (located in `TaskNotes/Views/` in your vault) and support complex filtering with dates, projects, contexts, and more.
+tasknotes.nvim integrates with **Obsidian Bases** for powerful, flexible task views. Views are defined in `.base` files, typically in `Tasks/Views/` when `vault_path` points at your TaskNotes folder, with fallback support for older `TaskNotes/Views/` layouts.
 
 ### Obsidian Bases Integration
 
-Views are loaded from `.base` files in your vault's `TaskNotes/Views/` directory. These files are automatically discovered and parsed by the plugin.
+Views are loaded from `.base` files in your configured views directory. By default this is `<vault_path>/Views`, and the plugin also falls back to older `TaskNotes/Views/` layouts when present.
 
 **Key features:**
 
@@ -288,7 +288,7 @@ Your vault includes several pre-configured views:
 Views are defined in `.base` files. To create a custom view:
 
 1. **In Obsidian:** Use the TaskNotes plugin UI to create/edit views
-2. **Manually:** Edit `.base` files in `TaskNotes/Views/` directory
+2. **Manually:** Edit `.base` files in your views directory, usually `Tasks/Views/`
 
 **Example `.base` file structure:**
 

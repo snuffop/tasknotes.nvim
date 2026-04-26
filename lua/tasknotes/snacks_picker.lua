@@ -11,12 +11,179 @@ local task_manager = require("tasknotes.task_manager")
 local config = require("tasknotes.config")
 local bases = require("bases")
 
+local function parse_iso_date(date_str)
+  if not date_str or date_str == "" then
+    return nil
+  end
+
+  local year, month, day = date_str:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)")
+  if not year then
+    return nil
+  end
+
+  return os.time({
+    year = tonumber(year),
+    month = tonumber(month),
+    day = tonumber(day),
+    hour = 0,
+    min = 0,
+    sec = 0,
+  })
+end
+
+local function today_timestamp()
+  return os.time({
+    year = tonumber(os.date("%Y")),
+    month = tonumber(os.date("%m")),
+    day = tonumber(os.date("%d")),
+    hour = 0,
+    min = 0,
+    sec = 0,
+  })
+end
+
+local function is_completed(task)
+  return config.get_status(task.status).is_completed
+end
+
+local function is_actionable(task)
+  return not is_completed(task)
+end
+
+local function same_day(date_str, target_ts)
+  local value_ts = parse_iso_date(date_str)
+  return value_ts ~= nil and value_ts == target_ts
+end
+
+local function between_days(date_str, start_ts, end_ts)
+  local value_ts = parse_iso_date(date_str)
+  return value_ts ~= nil and value_ts >= start_ts and value_ts <= end_ts
+end
+
+local function has_tag(task, tag)
+  for _, value in ipairs(task.tags or {}) do
+    if value == tag then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function wiki_link_for_path(path)
+  local basename = vim.fn.fnamemodify(path, ":t:r")
+  return string.format("[[%s]]", basename)
+end
+
+local function list_contains_reference(values, reference)
+  if not reference or reference == "" then
+    return false
+  end
+
+  for _, value in ipairs(values or {}) do
+    if value == reference then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function get_current_task_context()
+  local filepath = vim.api.nvim_buf_get_name(0)
+  if filepath == "" then
+    return nil
+  end
+
+  return {
+    filepath = filepath,
+    task = task_manager.get_task_by_path(filepath),
+    wikilink = wiki_link_for_path(filepath),
+  }
+end
+
+local function compatible_view_filter(view_id)
+  local today = today_timestamp()
+  local week_end = today + (7 * 24 * 60 * 60)
+
+  local stock_views = {
+    ["tasks-default:Manual Order"] = function()
+      return true
+    end,
+    ["tasks-default:All Tasks"] = function()
+      return true
+    end,
+    ["tasks-default:Today"] = function(task)
+      return is_actionable(task) and (same_day(task.due, today) or same_day(task.scheduled, today))
+    end,
+    ["tasks-default:Overdue"] = function(task)
+      local due_ts = parse_iso_date(task.due)
+      return is_actionable(task) and due_ts ~= nil and due_ts < today
+    end,
+    ["tasks-default:This Week"] = function(task)
+      if not is_actionable(task) then
+        return false
+      end
+
+      return between_days(task.due, today, week_end) or between_days(task.scheduled, today, week_end)
+    end,
+    ["tasks-default:Unscheduled"] = function(task)
+      return is_actionable(task) and not parse_iso_date(task.due) and not parse_iso_date(task.scheduled)
+    end,
+    ["tasks-default:Not Blocked"] = function(task)
+      return is_actionable(task) and not task_manager.is_task_blocked(task)
+    end,
+    ["tasks-default:Read Later"] = function(task)
+      return has_tag(task, "read-later")
+    end,
+    ["relationships:Projects"] = function(task)
+      local context = get_current_task_context()
+      return context ~= nil and list_contains_reference(task.projects, context.wikilink)
+    end,
+    ["relationships:Blocked By"] = function(task)
+      local context = get_current_task_context()
+      if not context or not context.task then
+        return false
+      end
+
+      for _, blocking_task in ipairs(task_manager.get_blocking_tasks(context.task)) do
+        if blocking_task.path == task.path then
+          return true
+        end
+      end
+
+      return false
+    end,
+    ["relationships:Blocking"] = function(task)
+      local context = get_current_task_context()
+      if not context or not context.task then
+        return false
+      end
+
+      for _, blocked_task in ipairs(task_manager.get_blocked_tasks(context.task)) do
+        if blocked_task.path == task.path then
+          return true
+        end
+      end
+
+      return false
+    end,
+  }
+
+  return stock_views[view_id]
+end
+
 -- Helper function to safely convert values to strings (handles vim.NIL)
 local function safe_string(value)
   if value == nil or value == vim.NIL then
     return ""
   end
   return tostring(value)
+end
+
+local function get_selected_item(picker)
+  local items = picker:selected({ fallback = true })
+  return items[1]
 end
 
 -- Format task for display in Snacks picker
@@ -161,14 +328,17 @@ function M.browse_tasks(opts)
     -- Actions
     actions = {
       -- Default action: open file (Enter key)
-      confirm = function(item)
+      confirm = function(picker)
+        local item = get_selected_item(picker)
         if item and item.file then
-          vim.cmd("edit " .. item.file)
+          picker:close()
+          vim.cmd("edit " .. vim.fn.fnameescape(item.file))
         end
       end,
 
       -- Mark as done (Ctrl-d)
-      ["<C-d>"] = function(item, picker)
+      ["<C-d>"] = function(picker)
+        local item = get_selected_item(picker)
         if not item or not item.task then return end
 
         -- Check if this task blocks other tasks
@@ -203,7 +373,8 @@ function M.browse_tasks(opts)
       end,
 
       -- Edit metadata (Ctrl-e)
-      ["<C-e>"] = function(item, picker)
+      ["<C-e>"] = function(picker)
+        local item = get_selected_item(picker)
         if not item or not item.task then return end
 
         picker:close()
@@ -216,7 +387,8 @@ function M.browse_tasks(opts)
       end,
 
       -- Delete task (Ctrl-x)
-      ["<C-x>"] = function(item, picker)
+      ["<C-x>"] = function(picker)
+        local item = get_selected_item(picker)
         if not item or not item.task then return end
 
         -- Confirm deletion
@@ -237,7 +409,8 @@ function M.browse_tasks(opts)
       end,
 
       -- Toggle timer (Ctrl-t)
-      ["<C-t>"] = function(item, picker)
+      ["<C-t>"] = function(picker)
+        local item = get_selected_item(picker)
         if not item or not item.task then return end
 
         local has_tracker, time_tracker = pcall(require, "tasknotes.ui.time_tracker")
@@ -249,7 +422,7 @@ function M.browse_tasks(opts)
       end,
 
       -- View selector (Ctrl-v)
-      ["<C-v>"] = function(item, picker)
+      ["<C-v>"] = function(picker)
         picker:close()
         vim.schedule(function()
           M.show_view_selector()
@@ -276,19 +449,22 @@ end
 
 -- Browse by view
 function M.browse_by_view(view_id)
-  vim.notify("DEBUG: browse_by_view called with: " .. view_id, vim.log.levels.INFO)
-
-  local opts = config.get()
-  local views_dir = vim.fn.expand(opts.vault_path) .. "/TaskNotes/Views"
-  vim.notify("DEBUG: views_dir = " .. views_dir, vim.log.levels.INFO)
-
+  local views_dir = config.get_views_dir()
+ 
   local view, err = bases.get_view(view_id, views_dir, { view_type = "tasknotesTaskList" })
   if not view then
     vim.notify("View not found: " .. view_id .. (err and (" - " .. err) or ""), vim.log.levels.ERROR)
     return
   end
 
-  vim.notify("DEBUG: View loaded: " .. view.name, vim.log.levels.INFO)
+  local predicate = compatible_view_filter(view_id)
+  if predicate then
+    M.browse_tasks({
+      filter = { predicate = predicate },
+      view_name = view.name,
+    })
+    return
+  end
 
   -- Combine base filters and view-specific filters
   local combined_filters = nil
@@ -305,7 +481,6 @@ function M.browse_by_view(view_id)
     combined_filters = view.view_filters
   end
 
-  vim.notify("DEBUG: Calling browse_tasks...", vim.log.levels.INFO)
   M.browse_tasks({
     filter = combined_filters and { bases_filters = combined_filters } or nil,
     view_name = view.name,
@@ -314,8 +489,7 @@ end
 
 -- Show view selector
 function M.show_view_selector()
-  local opts = config.get()
-  local views_dir = vim.fn.expand(opts.vault_path) .. "/TaskNotes/Views"
+  local views_dir = config.get_views_dir()
 
   local all_views, err = bases.list_views(views_dir, { view_type = "tasknotesTaskList" })
   if err then
@@ -355,23 +529,13 @@ function M.show_view_selector()
     end,
     actions = {
       confirm = function(picker)
-        -- Use picker:selected() to get the selected items (Snacks picker API)
         local items = picker:selected({ fallback = true })
-        vim.notify("DEBUG: Selected items count: " .. #items, vim.log.levels.INFO)
-
         if #items > 0 then
           local item = items[1]
-          vim.notify("DEBUG: First item: " .. vim.inspect({ view_id = item.view_id, text = item.text }), vim.log.levels.INFO)
-
           if item.view_id then
-            vim.notify("DEBUG: Calling browse_by_view with: " .. item.view_id, vim.log.levels.INFO)
             picker:close()
             M.browse_by_view(item.view_id)
-          else
-            vim.notify("DEBUG: No view_id in selected item!", vim.log.levels.WARN)
           end
-        else
-          vim.notify("DEBUG: No items selected!", vim.log.levels.WARN)
         end
       end,
     },

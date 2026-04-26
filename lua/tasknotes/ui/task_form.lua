@@ -140,9 +140,13 @@ function M.show_form(task, on_save)
   -- Set buffer options
   vim.api.nvim_buf_set_option(popup.bufnr, "filetype", "tasknotes-form")
 
-  -- Keymaps
-  -- Save
-  popup:map("n", "<C-s>", function()
+  local function close_form()
+    if popup.winid and vim.api.nvim_win_is_valid(popup.winid) then
+      popup:unmount()
+    end
+  end
+
+  local function save_form()
     local data = parse_form_data(popup.bufnr)
     local valid, err = validate_data(data)
 
@@ -151,19 +155,51 @@ function M.show_form(task, on_save)
       return
     end
 
-    popup:unmount()
+    close_form()
 
     if on_save then
       on_save(data)
     end
-  end, { noremap = true })
+  end
+
+  local function edit_current_field()
+    if not (popup.winid and vim.api.nvim_win_is_valid(popup.winid)) then
+      return
+    end
+
+    local cursor = vim.api.nvim_win_get_cursor(popup.winid)
+    local line = vim.api.nvim_buf_get_lines(popup.bufnr, cursor[1] - 1, cursor[1], false)[1] or ""
+    local colon = line:find(": ", 1, true)
+
+    if not colon then
+      return
+    end
+
+    vim.api.nvim_win_set_cursor(popup.winid, { cursor[1], colon + 1 })
+    vim.cmd("startinsert!")
+  end
 
   -- Cancel
   popup:on(event.BufLeave, function()
-    popup:unmount()
+    close_form()
   end)
 
   popup:mount()
+
+  local function map(mode, lhs, rhs)
+    vim.keymap.set(mode, lhs, rhs, {
+      buffer = popup.bufnr,
+      noremap = true,
+      silent = true,
+      nowait = true,
+    })
+  end
+
+  -- Keymaps
+  map("n", "<CR>", edit_current_field)
+  map({ "n", "i" }, "<C-s>", save_form)
+  map({ "n", "i" }, "<Esc>", close_form)
+  map("n", "q", close_form)
 end
 
 -- Create new task
